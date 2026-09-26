@@ -25,10 +25,27 @@ export async function updateSettings(req, res, next) {
     const userId = req.user.id;
     const { alertThreshold, theme, emailNotifications } = req.body;
 
+    const threshold = alertThreshold !== undefined ? Number(alertThreshold) : 85;
+    const th = theme || 'light';
+    const emailNotif = emailNotifications !== undefined ? (emailNotifications ? 1 : 0) : 1;
+
+    const existing = await query('SELECT id FROM settings WHERE user_id = ?', [userId]);
+    if (existing && existing.length > 0) {
+      await query(
+        'UPDATE settings SET alert_threshold = ?, theme = ?, email_notifications = ? WHERE user_id = ?',
+        [threshold, th, emailNotif, userId]
+      );
+    } else {
+      await query(
+        'INSERT INTO settings (alert_threshold, theme, email_notifications, user_id) VALUES (?, ?, ?, ?)',
+        [threshold, th, emailNotif, userId]
+      );
+    }
+
     res.status(200).json({
       success: true,
       message: 'Settings updated successfully.',
-      data: { alertThreshold, theme, emailNotifications }
+      data: { alertThreshold: threshold, theme: th, emailNotifications: Boolean(emailNotif) }
     });
   } catch (err) {
     next(err);

@@ -16,7 +16,7 @@ export function FinanceProvider({ children }) {
   const [token, setAuthToken] = useState(() => localStorage.getItem('spendroot_token'));
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('spendroot_user');
-    return saved ? JSON.parse(saved) : INITIAL_USER;
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
@@ -79,29 +79,20 @@ export function FinanceProvider({ children }) {
     }
   }, []);
 
-  // Initialize and auto-login demo user on load if token missing
+  // Initialize on load: check backend connection and fetch data if authenticated
   useEffect(() => {
     async function init() {
       try {
         const health = await api.health();
         if (health && health.success) {
           setIsBackendConnected(true);
-
-          // If no token exists yet, auto-login demo user to establish JWT connection
-          if (!localStorage.getItem('spendroot_token')) {
-            const loginRes = await api.auth.login('demo@spendroot.com', 'Demo@123');
-            if (loginRes && loginRes.success) {
-              setToken(loginRes.data.token);
-              setAuthToken(loginRes.data.token);
-              setUser(loginRes.data.user);
-              localStorage.setItem('spendroot_user', JSON.stringify(loginRes.data.user));
-            }
-          }
         }
       } catch (e) {
-        // backend offline, fallback gracefully
+        // backend offline
       }
-      fetchBackendData();
+      if (localStorage.getItem('spendroot_token')) {
+        fetchBackendData();
+      }
     }
     init();
   }, [fetchBackendData]);
@@ -114,11 +105,11 @@ export function FinanceProvider({ children }) {
     .reduce((sum, t) => sum + Number(t.amount), 0);
 
   const netSavings = Math.max(0, totalIncome - totalExpenses);
-  const savingsRate = ((netSavings / totalIncome) * 100).toFixed(1);
+  const savingsRate = totalIncome > 0 ? ((netSavings / totalIncome) * 100).toFixed(1) : '0.0';
 
   const totalGoalTarget = goals.reduce((sum, g) => sum + (Number(g.targetAmount) || Number(g.target_amount) || 0), 0);
   const totalGoalSaved = goals.reduce((sum, g) => sum + (Number(g.currentAmount) || Number(g.current_amount) || 0), 0);
-  const savingsGoalProgress = totalGoalTarget > 0 ? Math.round((totalGoalSaved / totalGoalTarget) * 100) : 68;
+  const savingsGoalProgress = totalGoalTarget > 0 ? Math.round((totalGoalSaved / totalGoalTarget) * 100) : 0;
 
   // Actions connecting to REST API
   const login = async (email, password) => {
@@ -146,8 +137,9 @@ export function FinanceProvider({ children }) {
   const logout = () => {
     setToken(null);
     setAuthToken(null);
+    localStorage.removeItem('spendroot_token');
     localStorage.removeItem('spendroot_user');
-    setUser(INITIAL_USER);
+    setUser(null);
     showToast('Logged out successfully', 'info');
   };
 
@@ -157,11 +149,15 @@ export function FinanceProvider({ children }) {
       if (res && res.success) {
         setTransactions(prev => [res.data, ...prev]);
         showToast(`Added ₹${res.data.amount} for ${res.data.merchant} (saved to MySQL)`, 'success');
-        fetchBackendData(); // Recalculate budgets and insights via API
+        fetchBackendData();
         return;
       }
     } catch (e) {
-      // Local fallback
+      if (e.status) {
+        showToast(e.message || 'Failed to add transaction', 'warning');
+        return;
+      }
+      // Genuine network failure: offline fallback
       const formatted = {
         ...newTx,
         id: `tx_${Date.now()}`,
@@ -170,7 +166,7 @@ export function FinanceProvider({ children }) {
         status: 'Completed'
       };
       setTransactions(prev => [formatted, ...prev]);
-      showToast(`Added ₹${formatted.amount} for ${formatted.merchant}`, 'success');
+      showToast(`Added ₹${formatted.amount} for ${formatted.merchant} (offline mode)`, 'info');
     }
   };
 
@@ -181,8 +177,12 @@ export function FinanceProvider({ children }) {
       showToast('Transaction removed', 'info');
       fetchBackendData();
     } catch (e) {
+      if (e.status) {
+        showToast(e.message || 'Failed to delete transaction', 'warning');
+        return;
+      }
       setTransactions(prev => prev.filter(t => t.id !== id));
-      showToast('Transaction removed', 'info');
+      showToast('Transaction removed (offline mode)', 'info');
     }
   };
 
@@ -192,8 +192,12 @@ export function FinanceProvider({ children }) {
       showToast('Budget updated in database', 'success');
       fetchBackendData();
     } catch (e) {
+      if (e.status) {
+        showToast(e.message || 'Failed to update budget', 'warning');
+        return;
+      }
       setBudgets(prev => prev.map(b => b.id === budgetId ? { ...b, budget: Number(newBudget) } : b));
-      showToast('Budget updated', 'success');
+      showToast('Budget updated (offline mode)', 'info');
     }
   };
 
@@ -203,8 +207,12 @@ export function FinanceProvider({ children }) {
       showToast(`Contributed ₹${Number(amount).toLocaleString('en-IN')}!`, 'success');
       fetchBackendData();
     } catch (e) {
+      if (e.status) {
+        showToast(e.message || 'Failed to contribute to goal', 'warning');
+        return;
+      }
       setGoals(prev => prev.map(g => g.id === goalId ? { ...g, currentAmount: g.currentAmount + Number(amount) } : g));
-      showToast(`Contributed ₹${Number(amount).toLocaleString('en-IN')}!`, 'success');
+      showToast(`Contributed ₹${Number(amount).toLocaleString('en-IN')} (offline mode)!`, 'info');
     }
   };
 
@@ -217,7 +225,11 @@ export function FinanceProvider({ children }) {
         return;
       }
     } catch (e) {
-      showToast(`Imported ${validRecords.length} records`, 'success');
+      if (e.status) {
+        showToast(e.message || 'Failed to import transactions', 'warning');
+        return;
+      }
+      showToast(`Network error: imported ${validRecords.length} records locally`, 'info');
     }
   };
 

@@ -198,11 +198,20 @@ function executeFallbackQuery(sql, params) {
     const userId = Number(params[0]);
     let txs = memStore.transactions.filter(t => t.user_id === userId);
 
-    // Optional category or date filter
-    if (s.includes('CATEGORY =') && params.length >= 2) {
-      const cat = params[1];
+    let paramIdx = 1;
+    if (s.includes('CATEGORY =') && params[paramIdx] !== undefined) {
+      const cat = params[paramIdx++];
       if (cat && cat !== 'All') txs = txs.filter(t => t.category === cat);
     }
+    if (s.includes('TYPE =') && params[paramIdx] !== undefined) {
+      const typ = params[paramIdx++];
+      if (typ && typ !== 'All') txs = txs.filter(t => (t.type || '').toUpperCase() === typ.toUpperCase());
+    }
+    if (s.includes('PAYMENT_METHOD =') && params[paramIdx] !== undefined) {
+      const pm = params[paramIdx++];
+      if (pm && pm !== 'All') txs = txs.filter(t => (t.payment_method || '').toLowerCase() === pm.toLowerCase());
+    }
+
     // Sort descending by date
     txs.sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
     return txs;
@@ -304,6 +313,21 @@ function executeFallbackQuery(sql, params) {
     const userId = Number(params[0]);
     const set = memStore.settings.find(st => st.user_id === userId);
     return set ? [set] : [{ user_id: userId, alert_threshold: 85, theme: 'light', email_notifications: true }];
+  }
+
+  // UPDATE / INSERT settings
+  if (s.startsWith('UPDATE SETTINGS') || s.startsWith('INSERT INTO SETTINGS')) {
+    const userId = Number(params[params.length - 1]);
+    let set = memStore.settings.find(st => st.user_id === userId);
+    if (!set) {
+      set = { id: memStore.settings.length + 1, user_id: userId };
+      memStore.settings.push(set);
+    }
+    set.alert_threshold = Number(params[0]);
+    set.theme = params[1] || 'light';
+    set.email_notifications = Boolean(params[2]);
+    persistStore();
+    return { affectedRows: 1 };
   }
 
   return [];

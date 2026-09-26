@@ -21,9 +21,9 @@ export async function getDashboardSummary(req, res, next) {
     const goals = await query('SELECT * FROM goals WHERE user_id = ?', [userId]);
     const totalGoalTarget = goals.reduce((sum, g) => sum + Number(g.target_amount), 0);
     const totalGoalSaved = goals.reduce((sum, g) => sum + Number(g.current_amount), 0);
-    const savingsGoalProgress = totalGoalTarget > 0 ? Math.round((totalGoalSaved / totalGoalTarget) * 100) : 68;
+    const savingsGoalProgress = totalGoalTarget > 0 ? Math.round((totalGoalSaved / totalGoalTarget) * 100) : 0;
 
-    // 3. Budgets health
+    // 3. Budgets health with real date-derived velocity
     const budgets = await query('SELECT * FROM budgets WHERE user_id = ?', [userId]);
     const expensesByCategory = {};
     for (const t of transactions) {
@@ -32,9 +32,13 @@ export async function getDashboardSummary(req, res, next) {
       }
     }
 
+    const now = new Date();
+    const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysElapsed = Math.min(totalDaysInMonth, Math.max(1, now.getDate()));
+
     const budgetHealth = budgets.map(b => {
       const spent = expensesByCategory[b.category] || 0;
-      const forecast = calculateBudgetForecast(spent, Number(b.amount), 20, 30);
+      const forecast = calculateBudgetForecast(spent, Number(b.amount), daysElapsed, totalDaysInMonth);
       return {
         id: b.id,
         categoryName: b.category,

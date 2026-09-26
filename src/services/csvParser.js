@@ -1,6 +1,31 @@
 // CSV Parsing and Validation Service for SpendRoot
 import { autoCategorizeMerchant } from './intelligenceEngine';
 
+function parseCsvLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
 export function parseCsvContent(csvText, existingTransactions = []) {
   const lines = csvText.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
   if (lines.length < 2) {
@@ -12,9 +37,21 @@ export function parseCsvContent(csvText, existingTransactions = []) {
     };
   }
 
-  // Parse header
-  const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+  // Parse header and map column indices by name
+  const headerCols = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase().replace(/^"|"$/g, ''));
   const rows = lines.slice(1);
+
+  const dateIdx = headerCols.findIndex(h => h.includes('date') || h.includes('time'));
+  const merchantIdx = headerCols.findIndex(h => h.includes('merchant') || h.includes('desc') || h.includes('payee') || h.includes('vendor') || h.includes('title') || h === 'name');
+  const amountIdx = headerCols.findIndex(h => h.includes('amount') || h.includes('value') || h.includes('price') || h.includes('inr') || h.includes('debit'));
+  const categoryIdx = headerCols.findIndex(h => h.includes('category'));
+  const modeIdx = headerCols.findIndex(h => h.includes('mode') || h.includes('method'));
+
+  const getCol = (cols, namedIdx, positionalIdx) => {
+    if (namedIdx !== -1 && cols[namedIdx] !== undefined) return cols[namedIdx];
+    if (positionalIdx !== -1 && cols[positionalIdx] !== undefined) return cols[positionalIdx];
+    return "";
+  };
 
   const parsedRecords = [];
   let validCount = 0;
@@ -22,11 +59,13 @@ export function parseCsvContent(csvText, existingTransactions = []) {
   let incompleteCount = 0;
 
   rows.forEach((rowStr, index) => {
-    // Handle comma separated values
-    const cols = rowStr.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-    const merchant = cols[1] || cols[0] || "";
-    const rawAmount = cols[3] || cols[2] || "0";
-    const rawDate = cols[0] || "2026-09-20";
+    const cols = parseCsvLine(rowStr);
+    const rawDate = getCol(cols, dateIdx, 0) || "2026-09-20";
+    const merchant = getCol(cols, merchantIdx, 1) || "Unknown Merchant";
+    const rawAmount = getCol(cols, amountIdx, 3) || getCol(cols, -1, 2) || "0";
+    const rawCategory = getCol(cols, categoryIdx, -1);
+    const rawMode = getCol(cols, modeIdx, -1) || "UPI";
+
     const amount = parseFloat(rawAmount.replace(/[^0-9.-]/g, '')) || 0;
 
     let status = "Valid";
@@ -47,9 +86,10 @@ export function parseCsvContent(csvText, existingTransactions = []) {
     // Validation 3: Duplicate check against existing transactions
     else {
       const isDuplicate = existingTransactions.some(t => 
-        t.merchant.toLowerCase() === merchant.toLowerCase() &&
-        Math.abs(t.amount - amount) < 0.01 &&
-        t.date === rawDate
+        (t.merchant || '').toLowerCase() === merchant.toLowerCase() &&
+        Math.abs(Number(t.amount) - amount) < 0.01 &&
+        ((t.date && t.date.slice(0, 10) === rawDate.slice(0, 10)) ||
+         (t.transaction_date && String(t.transaction_date).slice(0, 10) === rawDate.slice(0, 10)))
       );
 
       if (isDuplicate) {
@@ -61,8 +101,10 @@ export function parseCsvContent(csvText, existingTransactions = []) {
       }
     }
 
-    // Auto categorize
-    const { category, confidence } = autoCategorizeMerchant(merchant);
+    // Auto categorize or use CSV category
+    const autoCat = autoCategorizeMerchant(merchant);
+    const category = rawCategory || autoCat.category;
+    const confidence = rawCategory ? 1.0 : autoCat.confidence;
 
     parsedRecords.push({
       row: index + 1,
@@ -73,7 +115,7 @@ export function parseCsvContent(csvText, existingTransactions = []) {
       confidence,
       status,
       issue,
-      paymentMode: "UPI",
+      paymentMode: rawMode,
     });
   });
 

@@ -6,7 +6,13 @@ import api, { setToken } from '../services/api';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { showToast, refreshData } = useFinance();
+  const { showToast, refreshData, token } = useFinance();
+
+  React.useEffect(() => {
+    if (token) {
+      navigate('/', { replace: true });
+    }
+  }, [token, navigate]);
 
   const [name, setName] = useState('Vishal');
   const [email, setEmail] = useState('demo@spendroot.com');

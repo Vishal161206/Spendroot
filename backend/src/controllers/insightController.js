@@ -28,15 +28,24 @@ export async function getInsights(req, res, next) {
       }
     }
 
+    const now = new Date();
+    const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysElapsed = Math.min(totalDaysInMonth, Math.max(1, now.getDate()));
+
     const budgetForecasts = budgets.map(b => {
       const spent = expensesByCategory[b.category] || 0;
-      return calculateBudgetForecast(spent, Number(b.amount), 20, 30);
+      return calculateBudgetForecast(spent, Number(b.amount), daysElapsed, totalDaysInMonth);
     });
+
+    const enrichedBudgets = budgets.map((b, i) => ({
+      ...b,
+      ...budgetForecasts[i]
+    }));
 
     const patterns = detectSpendingPatterns(transactions);
     const anomalies = detectAnomalies(transactions);
     const trends = analyzeTrends(transactions, budgets);
-    const recommendations = generateRecommendations(patterns, budgets, goals);
+    const recommendations = generateRecommendations(patterns, enrichedBudgets, goals);
     const healthScore = calculateFinancialHealthScore({
       totalIncome,
       totalExpenses,

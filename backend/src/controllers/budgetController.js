@@ -17,8 +17,9 @@ export async function getBudgets(req, res, next) {
       spentMap[row.category] = Number(row.total_spent) || 0;
     }
 
-    const daysElapsed = 20;
-    const totalDaysInMonth = 30;
+    const now = new Date();
+    const totalDaysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const daysElapsed = Math.min(totalDaysInMonth, Math.max(1, now.getDate()));
 
     const formattedBudgets = budgets.map(b => {
       const budgetAmount = Number(b.amount);

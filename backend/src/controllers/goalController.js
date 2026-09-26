@@ -11,10 +11,23 @@ export async function getGoals(req, res, next) {
       const remaining = Math.max(0, target - current);
       const progress = target > 0 ? Math.round((current / target) * 100) : 0;
 
-      // Pacing calculation
-      const requiredMonthly = g.name.toLowerCase().includes('laptop') ? 10000 : 2667;
-      const currentMonthly = g.name.toLowerCase().includes('laptop') ? 8150 : 3000;
-      const status = currentMonthly < requiredMonthly && progress < 50 ? 'At Risk' : 'On Track';
+      // Pacing calculation based on real target date and elapsed progress
+      const targetDate = g.target_date ? new Date(g.target_date) : null;
+      const validTargetDate = targetDate && !isNaN(targetDate.getTime()) 
+        ? targetDate 
+        : new Date(new Date().getFullYear(), new Date().getMonth() + 6, 1);
+      
+      const now = new Date();
+      const diffMonths = (validTargetDate.getFullYear() - now.getFullYear()) * 12 + (validTargetDate.getMonth() - now.getMonth());
+      const monthsRemaining = Math.max(1, diffMonths);
+      const requiredMonthly = remaining > 0 ? Math.round(remaining / monthsRemaining) : 0;
+
+      const createdDate = g.created_at ? new Date(g.created_at) : null;
+      const monthsElapsed = (createdDate && !isNaN(createdDate.getTime()))
+        ? Math.max(1, (now.getFullYear() - createdDate.getFullYear()) * 12 + (now.getMonth() - createdDate.getMonth()) + 1)
+        : 1;
+      const currentMonthly = current > 0 ? Math.round(current / monthsElapsed) : 0;
+      const status = (progress >= 100 || currentMonthly >= requiredMonthly) ? 'On Track' : 'At Risk';
 
       return {
         id: g.id,

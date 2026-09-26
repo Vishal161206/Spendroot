@@ -84,6 +84,14 @@ function MainLayout() {
   );
 }
 
+function ProtectedRoute({ children }) {
+  const { token } = useFinance();
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
 export default function App() {
   return (
     <FinanceProvider>
@@ -91,7 +99,14 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/*" element={<MainLayout />} />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </FinanceProvider>

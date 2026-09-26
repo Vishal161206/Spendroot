@@ -35,10 +35,21 @@ export async function importTransactions(req, res, next) {
       }
 
       // Validation 2: Duplicate check
+      const normalizeDate = d => {
+        if (!d) return '';
+        if (typeof d === 'string') return d.slice(0, 10);
+        try {
+          return new Date(d).toISOString().slice(0, 10);
+        } catch (e) {
+          return String(d).slice(0, 10);
+        }
+      };
+      const normalizedDate = normalizeDate(date);
+
       const isDuplicate = existing.some(ex => 
-        ex.merchant.toLowerCase() === merchant.toLowerCase() &&
+        (ex.merchant || '').toLowerCase() === merchant.toLowerCase() &&
         Math.abs(Number(ex.amount) - amount) < 0.01 &&
-        ex.transaction_date.toString().includes(date)
+        normalizeDate(ex.transaction_date) === normalizedDate
       );
 
       if (isDuplicate) {

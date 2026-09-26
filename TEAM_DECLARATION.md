@@ -16,7 +16,7 @@ We also understand that only material pushed to the official repository before t
 
 | Name | GitHub Username | Main Contribution | Signature / Confirmation |
 |---|---|---|---|
-|  |  |  |  |
-|  |  |  |  |
-|  |  |  |  |
-|  |  |  |  |
+| A. Ariselvam | vishal161206 | Frontend |  A. Ariselvam |
+| T.R. Vishal Anand |  vishal161206| Backend |  T.R. Vishal Anand |
+| I Rahul Mathew | vishal161206 | Database | I Rahul Mathew|
+| N.K Hari Krishna | vishal161206 | Analytics & Presentation | N.K Hari Krishna |

@@ -5,7 +5,13 @@ import { useFinance } from '../context/FinanceContext';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, isBackendConnected } = useFinance();
+  const { login, isBackendConnected, token } = useFinance();
+
+  React.useEffect(() => {
+    if (token) {
+      navigate('/', { replace: true });
+    }
+  }, [token, navigate]);
 
   const [email, setEmail] = useState('demo@spendroot.com');
   const [password, setPassword] = useState('Demo@123');

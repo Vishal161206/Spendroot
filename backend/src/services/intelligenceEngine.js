@@ -7,56 +7,90 @@
  * 1. TEMPORAL SEQUENCE PATTERN DETECTION
  * Detects patterns such as: Transport ride home followed by food delivery within 120 mins.
  */
-export function detectSpendingPatterns(transactions) {
-  const foodKeywords = ['SWIGGY', 'ZOMATO', 'MCDONALD', 'DOMINOS', 'KFC', 'RESTAURANT', 'CAFE'];
-  const transportKeywords = ['UBER', 'OLA', 'RAPIDO', 'METRO', 'AUTO'];
+export function detectSpendingPatterns(transactions = []) {
+  const foodKeywords = ['SWIGGY', 'ZOMATO', 'STARBUCKS', 'MCDONALD', 'DOMINOS', 'KFC', 'SUBWAY', 'BLINKIT', 'ZEPTO', 'INSTAMART', 'RESTAURANT', 'CAFE', 'BAKERY', 'DINER', 'FOOD', 'PIZZA', 'BURGER'];
+  const transportKeywords = ['UBER', 'OLA', 'RAPIDO', 'METRO', 'SHELL', 'PETROL', 'FUEL', 'INDIAN OIL', 'BPCL', 'AUTO', 'CAB', 'TAXI', 'IRCTC', 'RAILWAYS'];
 
-  const transportTxns = transactions.filter(t => 
-    t.type === 'EXPENSE' &&
-    transportKeywords.some(k => (t.merchant || '').toUpperCase().includes(k)) &&
-    t.transaction_time && parseInt(t.transaction_time.split(':')[0], 10) >= 19
-  );
+  const getMerchant = t => (t.merchant || t.description || '').toUpperCase();
+  const getDateString = d => {
+    if (!d) return '';
+    if (typeof d === 'string') return d.slice(0, 10);
+    if (d instanceof Date) return d.toISOString().slice(0, 10);
+    try {
+      return new Date(d).toISOString().slice(0, 10);
+    } catch (e) {
+      return String(d).slice(0, 10);
+    }
+  };
+  const getTimeString = t => {
+    if (!t) return '20:00:00';
+    if (typeof t === 'string') return t;
+    return String(t);
+  };
 
-  const foodTxns = transactions.filter(t => 
-    t.type === 'EXPENSE' &&
-    foodKeywords.some(k => (t.merchant || '').toUpperCase().includes(k)) &&
-    t.transaction_time && parseInt(t.transaction_time.split(':')[0], 10) >= 19
-  );
+  const transportTxns = transactions.filter(t => {
+    if (t.type !== 'EXPENSE') return false;
+    const isTransport = transportKeywords.some(k => getMerchant(t).includes(k)) || 
+                        (t.category && t.category.toUpperCase().includes('TRANSPORT'));
+    if (!isTransport) return false;
+    const tTime = getTimeString(t.transaction_time);
+    const hour = parseInt(tTime.split(':')[0], 10);
+    return isNaN(hour) || hour >= 19;
+  });
+
+  const foodTxns = transactions.filter(t => {
+    if (t.type !== 'EXPENSE') return false;
+    const isFood = foodKeywords.some(k => getMerchant(t).includes(k)) || 
+                   (t.category && t.category.toUpperCase().includes('FOOD'));
+    if (!isFood) return false;
+    const tTime = getTimeString(t.transaction_time);
+    const hour = parseInt(tTime.split(':')[0], 10);
+    return isNaN(hour) || hour >= 19;
+  });
 
   const sequences = [];
 
   for (const ride of transportTxns) {
-    const [rHour, rMin] = (ride.transaction_time || '20:00').split(':').map(Number);
-    const rideMinutes = rHour * 60 + rMin;
+    const rTime = getTimeString(ride.transaction_time);
+    const [rHour, rMin] = rTime.split(':').map(Number);
+    const rideMinutes = (rHour || 20) * 60 + (rMin || 0);
+    const rideDateStr = getDateString(ride.transaction_date);
 
     const matchedFood = foodTxns.find(f => {
-      if (f.transaction_date !== ride.transaction_date) return false;
-      const [fHour, fMin] = (f.transaction_time || '21:00').split(':').map(Number);
-      const foodMinutes = fHour * 60 + fMin;
+      if (getDateString(f.transaction_date) !== rideDateStr) return false;
+      const fTime = getTimeString(f.transaction_time);
+      const [fHour, fMin] = fTime.split(':').map(Number);
+      const foodMinutes = (fHour || 21) * 60 + (fMin || 0);
       const diff = foodMinutes - rideMinutes;
       return diff >= 0 && diff <= 120;
     });
 
     if (matchedFood) {
-      const [fHour, fMin] = (matchedFood.transaction_time || '21:00').split(':').map(Number);
-      const foodMinutes = fHour * 60 + fMin;
+      const fTime = getTimeString(matchedFood.transaction_time);
+      const [fHour, fMin] = fTime.split(':').map(Number);
+      const foodMinutes = (fHour || 21) * 60 + (fMin || 0);
       sequences.push({
-        date: ride.transaction_date,
-        rideMerchant: ride.merchant,
+        date: rideDateStr,
+        rideMerchant: ride.merchant || ride.description,
         rideAmount: Number(ride.amount),
-        foodMerchant: matchedFood.merchant,
+        foodMerchant: matchedFood.merchant || matchedFood.description,
         foodAmount: Number(matchedFood.amount),
         totalCost: Number(ride.amount) + Number(matchedFood.amount),
-        diffMinutes: foodMinutes - rideMinutes,
+        diffMinutes: Math.max(0, foodMinutes - rideMinutes),
       });
     }
   }
 
-  const occurrences = sequences.length || 5;
-  const avgCost = sequences.length > 0 
-    ? Math.round(sequences.reduce((sum, s) => sum + s.totalCost, 0) / sequences.length)
-    : 890;
-  const monthlyImpact = Math.round(occurrences * 0.45 * avgCost);
+  if (sequences.length === 0) {
+    return [];
+  }
+
+  const occurrences = sequences.length;
+  const avgCost = Math.round(sequences.reduce((sum, s) => sum + s.totalCost, 0) / occurrences);
+  const totalFoodCost = Math.round(sequences.reduce((sum, s) => sum + s.foodAmount, 0));
+  const maxDiff = Math.max(...sequences.map(s => s.diffMinutes));
+  const minDiff = Math.min(...sequences.map(s => s.diffMinutes));
+  const correlationPct = transportTxns.length > 0 ? Math.round((occurrences / transportTxns.length) * 100) : 100;
 
   return [
     {
@@ -64,21 +98,15 @@ export function detectSpendingPatterns(transactions) {
       type: 'Sequence Pattern',
       title: 'Late-evening food spending pattern',
       severity: 'high',
-      summary: `We detected ${occurrences} similar weekday commute → food delivery sequences this month.`,
+      summary: `We detected ${occurrences} weekday commute → food delivery sequence${occurrences > 1 ? 's' : ''} this month.`,
       primaryMerchant: 'Swiggy / Zomato',
       triggerMerchant: 'Uber / Ola',
-      timeWindow: 'Within 90-120 minutes (8:00 PM – 9:45 PM)',
+      timeWindow: `Within ${minDiff}–${maxDiff} minutes of evening commute`,
       occurrencesCount: occurrences,
       averageSequenceCost: avgCost,
-      monthlyAvoidableImpact: monthlyImpact > 0 ? monthlyImpact : 1700,
-      evidenceItems: sequences.length > 0 ? sequences : [
-        { date: '2026-09-18', trigger: 'Uber ride ₹320', followUp: 'Swiggy ₹680', diffMinutes: 45 },
-        { date: '2026-09-15', trigger: 'Uber ride ₹290', followUp: 'Zomato ₹620', diffMinutes: 62 },
-        { date: '2026-09-11', trigger: 'Ola Auto ₹190', followUp: 'Swiggy ₹690', diffMinutes: 38 },
-        { date: '2026-09-08', trigger: 'Uber ride ₹340', followUp: 'Swiggy ₹710', diffMinutes: 52 },
-        { date: '2026-09-04', trigger: 'Uber ride ₹310', followUp: 'Zomato ₹580', diffMinutes: 70 },
-      ],
-      explanation: 'On days with office commutes after 8:00 PM, exhaustion triggers rapid food delivery orders with 92% correlation, adding unplanned meal charges.'
+      monthlyAvoidableImpact: totalFoodCost,
+      evidenceItems: sequences,
+      explanation: `On ${occurrences} of ${transportTxns.length} late-evening commute days (${correlationPct}%), an evening commute after 7:00 PM was followed by a food delivery order within ${maxDiff} minutes, adding unplanned dining charges.`
     }
   ];
 }
@@ -189,49 +217,94 @@ export function calculateBudgetForecast(spent, budget, daysElapsed = 20, totalDa
  * 5. ACTIONABLE FINANCIAL RECOMMENDATIONS
  */
 export function generateRecommendations(patterns = [], budgets = [], goals = []) {
-  const foodBudget = budgets.find(b => (b.category || b.categoryName || '').includes('Food')) || { amount: 5000, spent: 4650 };
+  const recs = [];
 
-  return [
-    {
-      id: 'rec_food_reduce_2',
-      patternId: 'pat_late_food_seq',
-      title: 'Reduce two similar late-evening food-order sequences before the end of the month',
-      description: 'Prepare quick 15-minute home meals or pre-cook on 2 commute days to stop Food budget overrun.',
-      categoryAffected: 'Food & Dining',
-      estimatedSaving: 1100,
-      budgetBefore: 6050,
-      budgetAfter: 4950,
-      restoresBudgetTo: 'On Track',
-      goalImpactDescription: 'Redirecting ₹1,100 moves your Laptop savings pace from ₹8,150 to ₹9,250, cutting completion ETA by 24 days.',
-      status: 'Active'
-    },
-    {
-      id: 'rec_pause_netflix',
-      patternId: 'pat_subscription_cluster',
-      title: 'Pause idle digital streaming subscription',
-      description: 'Switch Netflix plan to monthly on-demand during busy work periods to directly boost net savings.',
-      categoryAffected: 'Subscriptions',
-      estimatedSaving: 649,
-      budgetBefore: 1200,
-      budgetAfter: 551,
-      restoresBudgetTo: 'On Track',
-      goalImpactDescription: 'Adds ₹649 directly to your Emergency Reserve fund.',
-      status: 'Active'
-    },
-    {
-      id: 'rec_cap_weekend_shopping',
-      patternId: 'pat_weekend_shopping',
-      title: 'Enforce 48-Hour Cart Hold for Shopping',
-      description: 'Leave non-essential items in cart for 48 hours to eliminate emotional impulsive checkout.',
-      categoryAffected: 'Shopping',
-      estimatedSaving: 500,
-      budgetBefore: 3400,
-      budgetAfter: 2900,
-      restoresBudgetTo: 'Significantly Improved',
-      goalImpactDescription: 'Reduces shopping budget variance by 55%.',
-      status: 'Active'
+  // 1. Derive from detected patterns
+  for (const pat of patterns) {
+    if (pat.id === 'pat_late_food_seq' || pat.type === 'Sequence Pattern') {
+      const foodBudget = budgets.find(b => (b.category || b.categoryName || '').toLowerCase().includes('food'));
+      const occurrences = pat.occurrencesCount || (pat.evidenceItems ? pat.evidenceItems.length : 0);
+      const reduceCount = Math.min(2, Math.max(1, Math.floor(occurrences / 2)));
+      const avgSeqCost = pat.averageSequenceCost || 890;
+      const sampleFoodAmount = pat.evidenceItems?.[0]?.foodAmount || Math.round(avgSeqCost * 0.6);
+      const estimatedSaving = Math.round(reduceCount * sampleFoodAmount);
+
+      const budgetAmount = foodBudget ? Number(foodBudget.amount || foodBudget.budget || 0) : 0;
+      const budgetSpent = foodBudget ? Number(foodBudget.spent || 0) : 0;
+      const budgetProjected = foodBudget ? Number(foodBudget.projected || budgetSpent) : budgetSpent;
+      const budgetBefore = budgetProjected || (budgetSpent + estimatedSaving);
+      const budgetAfter = Math.max(budgetSpent, budgetBefore - estimatedSaving);
+      const restoresTo = (budgetAmount > 0 && budgetAfter <= budgetAmount) ? 'On Track' : 'Significantly Improved';
+
+      const primaryGoal = goals[0];
+      let goalImpact = `Redirecting ₹${estimatedSaving.toLocaleString('en-IN')}/mo accelerates your net savings growth.`;
+      if (primaryGoal) {
+        const goalRemaining = Math.max(0, Number(primaryGoal.target_amount || primaryGoal.targetAmount || 0) - Number(primaryGoal.current_amount || primaryGoal.currentAmount || 0));
+        const monthsPace = goalRemaining > 0 ? Math.max(1, Math.round(goalRemaining / estimatedSaving)) : 1;
+        goalImpact = `Redirecting ₹${estimatedSaving.toLocaleString('en-IN')} accelerates your ${primaryGoal.name} goal completion by up to ${Math.round(monthsPace * 10)} days.`;
+      }
+
+      recs.push({
+        id: 'rec_food_reduce_2',
+        patternId: pat.id,
+        title: `Reduce ${reduceCount} similar late-evening food-order sequences before the end of the month`,
+        description: `Prepare quick 15-minute home meals or pre-cook on ${reduceCount} commute days to stop Food budget overrun.`,
+        categoryAffected: foodBudget ? (foodBudget.category || foodBudget.categoryName) : 'Food & Dining',
+        estimatedSaving,
+        budgetBefore,
+        budgetAfter,
+        restoresBudgetTo: restoresTo,
+        goalImpactDescription: goalImpact,
+        status: 'Active'
+      });
     }
-  ];
+  }
+
+  // 2. Derive from at-risk budgets
+  const atRiskBudgets = budgets.filter(b => {
+    const amt = Number(b.amount || b.budget || 0);
+    const spent = Number(b.spent || 0);
+    const proj = Number(b.projected || spent);
+    return amt > 0 && (b.status === 'At Risk' || b.status === 'WARNING' || b.status === 'EXCEEDED' || proj > amt || (spent / amt) >= 0.85);
+  });
+
+  for (const b of atRiskBudgets) {
+    const cat = b.category || b.categoryName;
+    if (!cat) continue;
+    // Avoid duplicate category if already covered by pattern
+    if (recs.some(r => r.categoryAffected && r.categoryAffected.toLowerCase().includes(cat.toLowerCase()))) {
+      continue;
+    }
+
+    const budgetAmt = Number(b.amount || b.budget);
+    const spent = Number(b.spent || 0);
+    const projected = Number(b.projected || spent);
+    const overrun = projected > budgetAmt ? (projected - budgetAmt) : Math.round(budgetAmt * 0.15);
+    const estimatedSaving = Math.round(overrun);
+    const budgetBefore = projected;
+    const budgetAfter = Math.max(spent, budgetBefore - estimatedSaving);
+
+    const primaryGoal = goals[0];
+    const goalText = primaryGoal
+      ? `Keeps ₹${estimatedSaving.toLocaleString('en-IN')} available for your ${primaryGoal.name} target.`
+      : `Restores ₹${estimatedSaving.toLocaleString('en-IN')} directly into your monthly savings.`;
+
+    recs.push({
+      id: `rec_cap_${cat.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+      patternId: `budget_risk_${cat.toLowerCase()}`,
+      title: `Cap remaining ${cat} expenditure for this month`,
+      description: `Pause non-essential ${cat} spending to prevent a projected ₹${overrun.toLocaleString('en-IN')} overrun.`,
+      categoryAffected: cat,
+      estimatedSaving,
+      budgetBefore,
+      budgetAfter,
+      restoresBudgetTo: 'On Track',
+      goalImpactDescription: goalText,
+      status: 'Active'
+    });
+  }
+
+  return recs;
 }
 
 /**
