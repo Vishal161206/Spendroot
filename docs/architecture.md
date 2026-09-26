@@ -2,61 +2,36 @@
 
 ## 1. Architecture Overview
 
-SpendRoot is currently implemented as a **responsive React web application** for the URAN 2026 FinTech Track FT-01 challenge.
+SpendRoot is a **full-stack financial behavior optimization platform** developed for the URAN 2026 FinTech Track FT-01 challenge.
 
-The current repository contains a working frontend prototype with:
+The repository contains a working full-stack implementation:
 
-- React + Vite application structure
-- React Router based navigation
-- Tailwind CSS based responsive UI
-- Reusable dashboard/page components
-- React Context for shared finance state
-- `localStorage` for persistent browser-side demo data
-- CSV import and validation
-- Rule-based merchant categorization
-- Client-side financial analytics and intelligence logic
-- Behavioral pattern detection
-- Recommendation generation
-- What-if financial simulation
+- **Frontend**: React 18, Vite, React Router, Tailwind CSS, Recharts, Lucide React
+- **Backend API**: Node.js, Express.js REST API with Helmet, Morgan, and CORS
+- **Database**: MySQL 8.0 relational database (`uran_ft01`) with connection pooling and unified storage adapter
+- **AI / Intelligence Engine**: Rule-based and statistical engine in `backend/src/services/intelligenceEngine.js` for sequence pattern detection, anomaly detection, velocity forecasting, and What-if simulation
+- **Authentication**: JWT token authentication with bcrypt password hashing
+- **Security**: User ownership isolation (`user_id === authenticated_user.id`), parameterized SQL queries
 
-The current prototype is intentionally **self-contained and uses synthetic/demo data**. It does not connect to real bank accounts, real payment credentials, or third-party financial APIs.
-
-The current implemented architecture is:
+The implemented architecture is:
 
 ```text
-User
-  |
-  v
-React Web Application
-  |
-  +--> React Router / Pages
-  |
-  +--> Reusable UI Components
-  |
-  +--> FinanceContext (shared application state)
-          |
-          +--> csvParser.js
-          |      └── CSV parsing + validation
-          |
-          +--> intelligenceEngine.js
-          |      ├── Merchant categorization
-          |      ├── Budget velocity / projection
-          |      ├── Pattern detection
-          |      └── What-if calculations
-          |
-          +--> mockData.js
-          |      └── Synthetic demo dataset
-          |
-          +--> Browser localStorage
-                 ├── transactions
-                 ├── budgets
-                 ├── goals
-                 ├── patterns
-                 ├── recommendations
-                 └── notifications
+USER (Browser)
+      │
+      ▼
+React Web Application (Port 3000)
+      │
+      ▼  HTTP REST (JSON) + Authorization: Bearer <JWT>
+Express.js REST API (Port 5000)
+      │
+      ├───────────────────────┬───────────────────────┐
+      ▼                       ▼                       ▼
+Controllers & Middleware   Intelligence Engine     Database Adapter
+(Auth, Tx, Budgets,       (Sequences, Anomaly,   (MySQL 8.0 / Pool)
+ Goals, Dashboard)         Forecasting, What-If)      │
+      │                       │                       ▼
+      └───────────────────────┴───────────────> MySQL Database (`uran_ft01`)
 ```
-
-The production-oriented Spring Boot + MySQL backend is **not yet connected in the current repository**. It is a planned integration target for the next development stage and therefore is not represented as an implemented component in the architecture diagram.
 
 ---
 
@@ -64,11 +39,11 @@ The production-oriented Spring Boot + MySQL backend is **not yet connected in th
 
 | Component | Responsibility | Technology |
 |---|---|---|
-| Frontend | Responsive web interface, navigation, forms, dashboards, charts, transaction management, budgets, goals, insights, simulator and monthly summary | React 18.3.1, Vite 5.4.6, React Router 6.26.2, Tailwind CSS 3.4.11, Recharts 2.12.7, Lucide React |
-| Backend | **Not implemented in the current prototype.** Planned REST API layer for authentication, transactions, budgets, goals, analytics and recommendations | Planned: Java + Spring Boot |
-| Database | Current demo persistence is browser-side. Finance state is stored and restored through `localStorage` | Browser `localStorage` |
-| AI / ML | Explainable client-side intelligence using deterministic rules and calculations; merchant categorization, budget projection, temporal behavior detection and what-if simulation | JavaScript in `src/services/intelligenceEngine.js`; no trained ML model currently used |
-| External API | No external financial/banking/payment API is currently used | None |
+| Frontend | Responsive web interface, navigation, forms, dashboards, charts, transaction management, budgets, goals, insights, simulator, CSV import, and monthly summary | React 18.3.1, Vite 5.4.6, React Router 6.26.2, Tailwind CSS 3.4.11, Recharts 2.12.7, Lucide React |
+| Backend | REST API layer for JWT auth, transactions, budgets, goals, analytics, pattern intelligence, CSV import, and settings | Node.js, Express.js, JWT, bcryptjs, express-validator, helmet, cors |
+| Database | Relational storage for users, transactions, budgets, goals, settings, patterns, and recommendations | MySQL 8.0 (`uran_ft01`) with unified query adapter |
+| AI / ML | Explainable intelligence using temporal sequence correlation, statistical anomaly z-score, velocity forecasting, and What-if simulation | Deterministic & statistical engine in `backend/src/services/intelligenceEngine.js` |
+| External API | None (Self-contained synthetic fintech sandbox) | None |
 
 ### Current source structure
 

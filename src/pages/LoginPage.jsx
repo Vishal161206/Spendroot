@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { TrendingUp, ShieldCheck, ArrowRight, Lock, Mail, Sparkles, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, ShieldCheck, ArrowRight, Lock, Mail, Sparkles, Database, CheckCircle2 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { showToast } = useFinance();
+  const { login, isBackendConnected } = useFinance();
 
   const [email, setEmail] = useState('demo@spendroot.com');
   const [password, setPassword] = useState('Demo@123');
@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -23,11 +23,14 @@ export default function LoginPage() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      showToast('Welcome back, Vishal!', 'success');
+    const result = await login(email.trim(), password);
+    setIsLoading(false);
+
+    if (result && result.success) {
       navigate('/');
-    }, 700);
+    } else {
+      setError(result?.error || 'Invalid credentials or backend unavailable.');
+    }
   };
 
   const handleQuickFill = () => {
@@ -40,7 +43,6 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col md:flex-row bg-[#F8FAFC]">
       {/* Left Panel: Fintech Branding & Abstract Intelligence Visual */}
       <div className="w-full md:w-1/2 bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 text-white p-8 lg:p-14 flex flex-col justify-between relative overflow-hidden">
-        {/* Subtle decorative glow */}
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 rounded-full bg-teal-500/10 blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
 
@@ -73,35 +75,45 @@ export default function LoginPage() {
           </h2>
 
           <p className="text-sm text-slate-300 max-w-md leading-relaxed">
-            Not just another expense tracker. SpendRoot detects spending sequences, explains why budgets are at risk, and simulates the mathematical impact of single habit adjustments.
+            Full-stack financial behavior optimization. Real-time REST API integration with MySQL and statistical pattern intelligence engine.
           </p>
 
           {/* Minimalist Micro Flow Preview */}
           <div className="p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md max-w-md space-y-2.5">
             <div className="flex items-center justify-between text-xs">
               <span className="text-teal-300 font-bold uppercase tracking-wider text-[10px]">
-                Main User Journey
+                Full Stack Loop
               </span>
-              <span className="text-emerald-400 font-mono text-[11px]">Active Loop</span>
+              <span className="flex items-center gap-1 text-emerald-400 font-mono text-[11px]">
+                <Database className="w-3 h-3" />
+                REST API + MySQL
+              </span>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium overflow-x-auto pb-1">
-              <span>Transactions</span>
+              <span>React</span>
               <ArrowRight className="w-3 h-3 text-teal-400 shrink-0" />
-              <span>Pattern</span>
+              <span>Express API</span>
               <ArrowRight className="w-3 h-3 text-teal-400 shrink-0" />
-              <span>Why Risk?</span>
+              <span>MySQL</span>
               <ArrowRight className="w-3 h-3 text-teal-400 shrink-0" />
-              <span>What-If</span>
+              <span>AI Engine</span>
               <ArrowRight className="w-3 h-3 text-teal-400 shrink-0" />
-              <span className="text-teal-300 font-bold">Goal Won</span>
+              <span className="text-teal-300 font-bold">Insights</span>
             </div>
           </div>
         </div>
 
-        {/* Trust Badge */}
-        <div className="relative z-10 flex items-center gap-2 text-xs text-slate-400">
-          <ShieldCheck className="w-4 h-4 text-teal-400" />
-          <span>Synthetic FinTech Sandbox • Zero real bank accounts required</span>
+        {/* Backend Status indicator */}
+        <div className="relative z-10 flex items-center justify-between text-xs text-slate-400">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-teal-400" />
+            <span>JWT Authenticated Session</span>
+          </div>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            isBackendConnected ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-500/40' : 'bg-amber-900/60 text-amber-300'
+          }`}>
+            {isBackendConnected ? '● Backend API Connected' : '○ Standby Mode'}
+          </span>
         </div>
       </div>
 
@@ -187,7 +199,11 @@ export default function LoginPage() {
                 />
                 <span>Remember me</span>
               </label>
-              <a href="#forgot" onClick={(e) => { e.preventDefault(); alert("Use Demo credentials: demo@spendroot.com / Demo@123"); }} className="text-teal-600 hover:underline font-semibold">
+              <a
+                href="#forgot"
+                onClick={(e) => { e.preventDefault(); alert("Use Demo credentials: demo@spendroot.com / Demo@123"); }}
+                className="text-teal-600 hover:underline font-semibold"
+              >
                 Forgot password?
               </a>
             </div>
@@ -200,7 +216,7 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Signing in...</span>
+                  <span>Signing in with REST API...</span>
                 </>
               ) : (
                 <>

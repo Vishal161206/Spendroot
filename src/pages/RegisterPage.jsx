@@ -2,24 +2,43 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { TrendingUp, ArrowRight, Lock, Mail, User, ShieldCheck } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
+import api, { setToken } from '../services/api';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { showToast } = useFinance();
+  const { showToast, refreshData } = useFinance();
 
   const [name, setName] = useState('Vishal');
   const [email, setEmail] = useState('demo@spendroot.com');
   const [password, setPassword] = useState('Demo@123');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
+    setError('');
+
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      const res = await api.auth.register({
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        monthlyIncome: 40000,
+      });
+
+      if (res && res.success) {
+        setToken(res.data.token);
+        localStorage.setItem('spendroot_user', JSON.stringify(res.data.user));
+        showToast('Account setup complete! Welcome to SpendRoot.', 'success');
+        await refreshData();
+        navigate('/');
+      }
+    } catch (err) {
+      setError(err.message || 'Registration failed');
+    } finally {
       setIsLoading(false);
-      showToast('Account setup complete! Welcome to SpendRoot.', 'success');
-      navigate('/');
-    }, 600);
+    }
   };
 
   return (
@@ -36,6 +55,12 @@ export default function RegisterPage() {
             Get started with SpendRoot behavior intelligence & budget optimization.
           </p>
         </div>
+
+        {error && (
+          <div className="p-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
@@ -95,10 +120,10 @@ export default function RegisterPage() {
             className="w-full py-3 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 active:scale-98 rounded-xl shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2"
           >
             {isLoading ? (
-              <span>Creating profile...</span>
+              <span>Registering account...</span>
             ) : (
               <>
-                <span>Get Started</span>
+                <span>Get Started with Full-Stack API</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
