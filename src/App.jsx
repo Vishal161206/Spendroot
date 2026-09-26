@@ -85,8 +85,8 @@ function MainLayout() {
 }
 
 function ProtectedRoute({ children }) {
-  const { token } = useFinance();
-  if (!token) {
+  const { token, user } = useFinance();
+  if (!token || !user) {
     return <Navigate to="/login" replace />;
   }
   return children;
