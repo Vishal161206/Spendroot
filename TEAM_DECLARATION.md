@@ -1,8 +1,8 @@
 # Team Declaration
 
-**Team ID:**  
-**Track:**  
-**Project Title:**  
+**Team ID:** URAN-FT-01  
+**Track:** FinTech (FT-01)  
+**Project Title:** SpendRoot — Explainable Personal Finance Behavior & Budget Optimizer  
 
 We declare that the material submitted in this official URAN 2026 repository represents our hackathon submission.
 

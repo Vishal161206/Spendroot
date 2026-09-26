@@ -84,51 +84,58 @@ src/
 
 ```text
 Manual transaction entry
-        |
-        v
+        │
+        ▼
 AddTransactionModal / TransactionsPage
-        |
-        v
+        │
+        ▼
 FinanceContext
-        |
-        +--> Merchant categorization
-        |
-        +--> Transaction formatting / validation
-        |
-        v
-React state
-        |
-        v
-localStorage
-        |
-        v
-Dashboard / Transactions / Budgets / Insights / Summary
+        │
+        ▼
+api.js (POST /api/transactions + Bearer JWT)
+        │
+        ▼
+Express transactionController
+        │
+        ▼
+MySQL Database (INSERT INTO transactions)
+        │
+        ▼
+Success response
+        │
+        ▼
+React state updated
+        │
+        ▼
+Real-time dashboard recalculation + AI intelligence update
 ```
 
 ### 3.2 CSV import flow
 
 ```text
 CSV file
-   |
-   v
+   │
+   ▼
 ImportPage
-   |
-   v
-csvParser.js
-   |
-   +--> Parse rows
-   +--> Validate fields
-   +--> Detect malformed records
-   +--> Detect likely duplicates
-   |
-   v
-Merchant normalization / categorization
-   |
-   v
-FinanceContext
-   |
-   v
-localStorage
+   │
+   ▼
+csvParser.js (Client validation, format check)
+   │
+   ▼
+api.js (POST /api/import/transactions)
+   │
+   ▼
+Express importController
+   │
+   ├── Validate fields & categories
+   ├── Deduplicate against existing records
+   └── Batch insert into MySQL database
+   │
+   ▼
+FinanceContext state updated
+   │
+   ▼
+Dashboard / Transactions / Budgets refreshed
 ```
 
 ### 3.3 Intelligence flow
@@ -220,80 +227,72 @@ The current simulator is non-destructive until the user chooses an action that c
    - The current Login/Register screens provide a frontend demonstration flow.
    - They do not yet provide production-grade server-side authentication or authorization.
 
-### Security requirements for the planned backend integration
+### Implemented Backend Security Safeguards
 
-When the Spring Boot backend is added, the following should be implemented before calling the application production-ready:
+The implemented Node.js + Express.js + MySQL backend incorporates:
 
 ```text
-HTTPS
-  |
-  v
-Spring Security
-  |
-  +--> Password hashing (BCrypt/Argon2)
-  +--> Authentication
-  +--> Authorization
-  +--> Protected REST endpoints
-  |
-  v
-Server-side validation
-  |
-  v
-MySQL with parameterized ORM/repository access
+HTTP Request
+  │
+  ▼
+Helmet (HTTP Headers Security)
+  │
+  ▼
+CORS (Origin validation for http://localhost:3000)
+  │
+  ▼
+Authentication Middleware (Bearer JWT verification)
+  │
+  ▼
+User Ownership Isolation (user_id === authenticated_user.id)
+  │
+  ▼
+Input Validation & Sanitization (express-validator)
+  │
+  ▼
+Parameterized MySQL Queries (Protection against SQL Injection)
+  │
+  ▼
+MySQL Database (uran_ft01)
 ```
 
-Additional requirements:
-
-- Never store plain-text passwords.
-- Do not trust client-side validation alone.
-- Validate transaction amounts, dates and identifiers on the server.
-- Authorize each resource by authenticated user ID.
-- Do not expose database credentials in source code.
-- Do not log passwords, tokens or sensitive financial payloads.
-- Use HTTPS for deployed environments.
-- Restrict CORS to trusted frontend origins.
-- Apply appropriate error handling without leaking internal stack traces.
+Key security practices implemented:
+- Passwords hashed using `bcryptjs` with salt rounds. Plain-text passwords are never stored.
+- Multi-user isolation enforced on all transaction, budget, goal, and analytical queries.
+- SQL queries parameterized using MySQL2 prepared statements (`?` placeholders).
+- Centralized error-handling middleware ensures database stack traces and credentials are never leaked to clients.
+- Environment variables (`.env`) used for all sensitive configuration (port, credentials, JWT secret).
 
 ---
 
-## 5. Architecture Diagram
+## 5. System Architecture Summary
 
-The final diagram is saved at:
-
-```text
-docs/architecture.png
-```
-
-It represents the **currently implemented frontend architecture**, not the future Spring Boot/MySQL design.
-
-The implemented flow is:
+The complete full-stack application data flow is:
 
 ```text
-User
-  ↓
-React Web App
-  ↓
-FinanceContext
-  ↓
-CSV Parser + Intelligence Engine + Synthetic Data
-  ↓
-Browser localStorage
-  ↓
-Dashboard / Insights / Simulator / Summary
+User (Browser)
+      │
+      ▼
+React 18 Web Application (Port 3000)
+      │
+      ▼  REST API (JSON) + Authorization: Bearer <JWT>
+Express.js REST API Server (Port 5000)
+      │
+      ├──────────────────────┬──────────────────────┐
+      ▼                      ▼                      ▼
+ Route Controllers     Intelligence Engine    Database Adapter
+ (Auth, Transactions,  (Temporal Sequences,   (MySQL 8.0 Pool)
+  Budgets, Goals)       Anomalies, Forecast)        │
+      │                      │                      ▼
+      └──────────────────────┴──────────────> MySQL Database (uran_ft01)
 ```
 
-### Future integration note
+The system demonstrates a complete, production-grade FinTech workflow:
+1. **User Authentication**: Secure JWT-based registration, login, and token session management.
+2. **Data Ingestion**: Manual transaction capture and bulk CSV import with validation and duplicate detection.
+3. **Automated Categorization**: Merchant-based rule categorization with confidence indicators.
+4. **Behavioral Intelligence**: Temporal sequence correlation (e.g. late commute → delivery order within 120m).
+5. **Statistical Anomalies**: Z-score anomaly detection identifying unusual spending without false accusations.
+6. **Velocity Forecasting**: Daily run-rate calculations estimating month-end totals against category budgets.
+7. **What-If Simulation**: Dynamic financial simulation modeling subscription cancellations and habit changes against savings goals.
 
-The next implementation stage can replace the browser-only persistence and intelligence execution with:
-
-```text
-React
-  ↓ REST API
-Spring Boot
-  ↓
-Service Layer
-  ↓
-MySQL
-```
-
-The future backend should preserve the same functional flow while moving authentication, persistence, validation, analytics and recommendation generation to the server where appropriate.

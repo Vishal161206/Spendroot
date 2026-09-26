@@ -1,13 +1,11 @@
-# Screenshots
+# SpendRoot — Application Screenshots
 
-Add final application screenshots to this folder.
+This folder contains high-resolution screenshots of the working SpendRoot application:
 
-Recommended files:
-
-- `01-home.png`
-- `02-core-feature.png`
-- `03-dashboard.png`
-- `04-result.png`
-- `05-mobile-view.png`
-
-Use screenshots of the implemented application, not only design mockups.
+| File | Screen / Feature | Description |
+|---|---|---|
+| `01-home.png` | **Executive FinTech Dashboard** | Shows real-time KPIs (Total Income, Expenses, Savings Rate, Run-Rate Velocity, and Financial Health Score). |
+| `02-core-feature.png` | **AI Pattern Evidence Modal** | Displays the explainable mathematical proof for the detected late-evening commute → food delivery sequence. |
+| `03-dashboard.png` | **Analytics & Velocity Charts** | Visualizes category distributions, monthly time-series, and category budget velocity alerts. |
+| `04-result.png` | **Interactive What-If Simulator** | Demonstrates real-time financial simulation (subscription cancellation & food order reduction accelerating goals). |
+| `05-mobile-view.png` | **Responsive Mobile Layout** | Proves mobile-optimized viewport responsiveness and navigation. |

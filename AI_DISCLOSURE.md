@@ -5,7 +5,7 @@ Complete this document before final submission.
 ## 1. AI Tools Used
 
 | Tool / Model | Purpose | What Was Generated / Assisted | Team Validation Performed |
-|---|---|---|---|
+|Gemini|Flash|Coding||Fully reviewed, debugged, and verified via automated test scripts and browser execution |
 | Antigravity AI Pair Programmer | Full-Stack Development Assistance | Assisted in scaffolding Express REST routes, React components, Tailwind styling, and test scripts | Fully reviewed, debugged, and verified via automated test scripts and browser execution |
 
 ## 2. External Code / Templates
