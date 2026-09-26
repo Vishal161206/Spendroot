@@ -102,7 +102,7 @@ export default function SettingsPage() {
       <div className="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
           <Database className="w-4 h-4 text-indigo-600" />
-          <span>Backend Integration Mode (Spring Boot / MySQL)</span>
+          <span>Backend Integration Mode (Express Js / MySQL)</span>
         </h2>
         <p className="text-xs text-slate-600 leading-relaxed">
           The SpendRoot frontend architecture utilizes a decoupled mock service layer (<span className="font-mono text-teal-700">financeService.js</span>). For hackathon judging, local reactive storage is active. When the Spring Boot REST API is connected, endpoints map directly:
