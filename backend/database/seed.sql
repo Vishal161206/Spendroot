@@ -5,6 +5,12 @@
 
 USE uran_ft01;
 
+-- Clean previous seed data to prevent duplicates on re-run
+DELETE FROM transactions WHERE user_id IN (1, 2);
+DELETE FROM budgets WHERE user_id IN (1, 2);
+DELETE FROM goals WHERE user_id IN (1, 2);
+DELETE FROM settings WHERE user_id IN (1, 2);
+
 -- Seed Categories
 INSERT IGNORE INTO categories (name, color, icon, type) VALUES
 ('Food & Dining', '#F59E0B', 'UtensilsCrossed', 'EXPENSE'),
@@ -37,8 +43,7 @@ INSERT IGNORE INTO budgets (user_id, category, amount, month, year) VALUES
 
 -- Seed Goals (Vishal)
 INSERT IGNORE INTO goals (user_id, name, category, target_amount, current_amount, target_date, description, color) VALUES
-(1, 'New Laptop', 'Gadgets / Work', 60000.00, 20000.00, 'March 2027', 'MacBook Pro / ThinkPad upgrade for development and freelancing.', '#0D9488'),
-(1, 'Emergency Fund', 'Safety Net', 30000.00, 22000.00, 'December 2026', '3 months of basic living reserves maintained in high-yield liquid funds.', '#10B981');
+(1, 'Emergency Fund', 'Safety Net', 50000.00, 18000.00, 'December 2026', '3 months of basic living reserves maintained in high-yield liquid funds.', '#10B981');
 
 -- Seed Transactions for September 2026 (Vishal)
 INSERT IGNORE INTO transactions (user_id, type, category, merchant, amount, transaction_date, transaction_time, payment_method, note, status, is_recurring) VALUES

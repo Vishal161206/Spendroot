@@ -85,7 +85,17 @@ function MainLayout() {
 }
 
 function ProtectedRoute({ children }) {
-  const { token, user } = useFinance();
+  const { token, user, authLoading } = useFinance();
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-semibold text-slate-500">Loading your financial data...</p>
+        </div>
+      </div>
+    );
+  }
   if (!token || !user) {
     return <Navigate to="/login" replace />;
   }

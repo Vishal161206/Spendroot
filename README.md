@@ -11,7 +11,7 @@
 
 ## 1. Team Information
 
-- **Team ID:** `URAN-FT-01
+- **Team ID:** `URAN-FT-01`
 - **Track:** `FinTech & Digital Economy`
 - **Challenge ID:** `FT-01`
 - **Project Title:** `SpendRoot – Explainable Personal Finance Behavior & Budget Optimizer`

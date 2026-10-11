@@ -1,5 +1,7 @@
 # System Architecture
 
+![SpendRoot Architecture](./architecture.png)
+
 ## 1. Architecture Overview
 
 SpendRoot is a **full-stack financial behavior optimization platform** developed for the URAN 2026 FinTech Track FT-01 challenge.

@@ -24,7 +24,7 @@ import { useFinance } from '../context/FinanceContext';
 import AddTransactionModal from '../components/common/AddTransactionModal';
 
 export default function TransactionsPage() {
-  const { transactions, deleteTransaction } = useFinance();
+  const { transactions, deleteTransaction, currentMonth } = useFinance();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedPaymentMode, setSelectedPaymentMode] = useState('All');
@@ -75,7 +75,7 @@ export default function TransactionsPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `SpendRoot_Transactions_Sept2026.csv`);
+    link.setAttribute('download', `SpendRoot_Transactions_${(currentMonth || 'ledger').replace(/\s+/g, '_')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

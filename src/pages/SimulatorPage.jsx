@@ -12,59 +12,87 @@ import {
   Zap,
   Target,
   ShieldCheck,
+  PlusCircle,
+  MinusCircle,
 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { calculateWhatIfImpact } from '../services/intelligenceEngine';
 
 export default function SimulatorPage() {
-  const { totalIncome, totalExpenses, budgets, goals, applyRecommendation } = useFinance();
+  const { totalIncome, totalExpenses, budgets, goals, monthlyTransactions, applyRecommendation, primaryGoal } = useFinance();
+
+  // Dynamic user categories derived from budgets and actual transactions
+  const userCategories = useMemo(() => {
+    const cats = new Set();
+    budgets.forEach((b) => cats.add(b.categoryName || b.category));
+    monthlyTransactions.forEach((t) => {
+      if (t.category) cats.add(t.category);
+    });
+    return Array.from(cats);
+  }, [budgets, monthlyTransactions]);
+
+  const topCategory = budgets.length > 0 ? (budgets[0].categoryName || budgets[0].category) : (userCategories[0] || 'Food');
+  const secondCategory = budgets.length > 1 ? (budgets[1].categoryName || budgets[1].category) : (userCategories[1] || 'Shopping');
+
+  const topBudgetObj = budgets.find((b) => (b.categoryName || b.category) === topCategory) || {
+    budget: 5000,
+    spent: 0,
+    projected: 0,
+  };
 
   // Scenario Controls State
-  const [foodReductionTxCount, setFoodReductionTxCount] = useState(2); // Cut 2 orders = ₹1,100 default
-  const [foodPercentCut, setFoodPercentCut] = useState(0);            // 0%, 10%, 25%
-  const [pauseNetflix, setPauseNetflix] = useState(false);            // ₹649
-  const [shoppingCut, setShoppingCut] = useState(0);                  // 0, 500, 1000
-  const [transportCut, setTransportCut] = useState(0);                // 0, 300, 600
+  const [topCategoryPercentCut, setTopCategoryPercentCut] = useState(0); // 0% - 30%
+  const [secondaryCategoryCut, setSecondaryCategoryCut] = useState(0);    // 0, 500, 1000
+  const [additionalExpense, setAdditionalExpense] = useState(0);          // + Amount scenario
+  const [customCategory, setCustomCategory] = useState(userCategories[2] || userCategories[0] || 'Transport');
+  const [customPercentCut, setCustomPercentCut] = useState(0);
   const [applied, setApplied] = useState(false);
 
-  // Extract baseline category figures
-  const foodBudgetObj = budgets.find(b => b.id === 'b_food') || { budget: 5000, spent: 4650, projected: 6050 };
-  const shoppingBudgetObj = budgets.find(b => b.id === 'b_shopping') || { budget: 2500, spent: 2150, projected: 3400 };
-  const laptopGoalObj = goals.find(g => g.id === 'goal_laptop') || { targetAmount: 60000, currentAmount: 20000 };
+  // Compute dynamic top category reduction in ₹
+  const topCategoryBaseSpent = topBudgetObj.spent || 3000;
+  const topCategoryReductionAmount = Math.round(topCategoryBaseSpent * (topCategoryPercentCut / 100));
+
+  // Compute custom category reduction in ₹
+  const customCatSpent = useMemo(() => {
+    const txs = monthlyTransactions.filter((t) => t.category === customCategory && (t.type === 'Expense' || t.type === 'EXPENSE'));
+    return txs.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 2000;
+  }, [monthlyTransactions, customCategory]);
+  const customReductionAmount = Math.round(customCatSpent * (customPercentCut / 100));
+
+  const totalSpendingReductions = topCategoryReductionAmount + secondaryCategoryCut + customReductionAmount;
+
+  // Active goal or default objective
+  const activeGoal = primaryGoal || (goals.length > 0 ? goals[0] : null);
+  const goalTarget = activeGoal ? Number(activeGoal.targetAmount || activeGoal.target_amount || 0) : 0;
+  const goalCurrent = activeGoal ? Number(activeGoal.currentAmount || activeGoal.current_amount || 0) : 0;
+  const goalName = activeGoal ? (activeGoal.name || activeGoal.title) : 'Build Your Savings';
 
   // Calculate dynamic impact via pure math engine
   const impact = useMemo(() => {
     return calculateWhatIfImpact({
       baseIncome: totalIncome,
       baseExpense: totalExpenses,
-      foodBudget: foodBudgetObj.budget,
-      foodSpent: foodBudgetObj.spent,
-      foodProjected: foodBudgetObj.projected,
-      shoppingBudget: shoppingBudgetObj.budget,
-      shoppingProjected: shoppingBudgetObj.projected,
-      goalTarget: laptopGoalObj.targetAmount,
-      goalCurrent: laptopGoalObj.currentAmount,
-      foodOrderReductionCount: foodReductionTxCount,
-      foodPercentCut,
-      removeNetflix: pauseNetflix,
-      shoppingCutAmount: shoppingCut,
-      transportCutAmount: transportCut,
+      goalTarget,
+      goalCurrent,
+      goalName,
+      spendingReductions: totalSpendingReductions,
+      additionalExpense: Number(additionalExpense) || 0,
+      foodBudget: topBudgetObj.budget,
+      foodSpent: topBudgetObj.spent,
+      foodProjected: topBudgetObj.projected || topBudgetObj.spent,
     });
   }, [
     totalIncome,
     totalExpenses,
-    foodBudgetObj,
-    shoppingBudgetObj,
-    laptopGoalObj,
-    foodReductionTxCount,
-    foodPercentCut,
-    pauseNetflix,
-    shoppingCut,
-    transportCut,
+    goalTarget,
+    goalCurrent,
+    goalName,
+    totalSpendingReductions,
+    additionalExpense,
+    topBudgetObj,
   ]);
 
   const handleApply = () => {
-    // Fire festive fintech celebration confetti
     try {
       confetti({
         particleCount: 80,
@@ -73,28 +101,34 @@ export default function SimulatorPage() {
         colors: ['#0D9488', '#10B981', '#F59E0B'],
       });
     } catch (e) {
-      // fallback if canvas not available
+      // fallback
     }
 
-    applyRecommendation('rec_food_reduce_2');
+    if (impact.savingsDelta > 0) {
+      applyRecommendation('rec_simulated_optimization');
+    }
     setApplied(true);
   };
 
   const handleResetControls = () => {
-    setFoodReductionTxCount(0);
-    setFoodPercentCut(0);
-    setPauseNetflix(false);
-    setShoppingCut(0);
-    setTransportCut(0);
+    setTopCategoryPercentCut(0);
+    setSecondaryCategoryCut(0);
+    setAdditionalExpense(0);
+    setCustomPercentCut(0);
     setApplied(false);
   };
 
-  const handlePresetRecommended = () => {
-    setFoodReductionTxCount(2);
-    setFoodPercentCut(0);
-    setPauseNetflix(false);
-    setShoppingCut(0);
-    setTransportCut(0);
+  const handlePresetPositive = () => {
+    setTopCategoryPercentCut(20);
+    setSecondaryCategoryCut(500);
+    setAdditionalExpense(0);
+    setApplied(false);
+  };
+
+  const handlePresetNegative = () => {
+    setTopCategoryPercentCut(0);
+    setSecondaryCategoryCut(0);
+    setAdditionalExpense(2000);
     setApplied(false);
   };
 
@@ -108,19 +142,25 @@ export default function SimulatorPage() {
             <span>Interactive Behavioral Simulation</span>
           </div>
           <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-slate-900">
-            What happens if I change one habit?
+            What-If Financial Simulator
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
-            Simulate small, realistic adjustments to your daily spending routines. See the exact mathematical ripple effect on budget health, net savings, and your savings goal finish line.
+            Simulate habit optimizations or planned expenses. Calculated directly from your actual transactions and goals.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={handlePresetRecommended}
-            className="px-3.5 py-2 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl border border-teal-200 transition-colors"
+            onClick={handlePresetPositive}
+            className="px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-xl border border-teal-200 transition-colors"
           >
-            Recommended Preset (-2 Orders)
+            Reduce Spending (-20%)
+          </button>
+          <button
+            onClick={handlePresetNegative}
+            className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-200 transition-colors"
+          >
+            +₹2,000 New Expense
           </button>
           <button
             onClick={handleResetControls}
@@ -139,107 +179,55 @@ export default function SimulatorPage() {
           <div className="p-5 lg:p-6 bg-white rounded-2xl border border-slate-200/80 shadow-xs space-y-6">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-                1. Scenario Variables
+                1. Spending Adjustments
               </h2>
-              <span className="text-xs text-slate-400">Drag or toggle</span>
+              <span className="text-xs text-slate-400">Personalized to your habits</span>
             </div>
 
-            {/* Variable 1: Food Delivery Reductions */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-slate-800 block">
-                    Food Delivery Orders Cut
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    Target late-evening Swiggy/Zomato sequences
-                  </span>
-                </div>
-                <span className="px-2.5 py-1 text-xs font-bold text-teal-700 bg-teal-50 rounded-lg border border-teal-200">
-                  {foodReductionTxCount} orders (-₹{foodReductionTxCount * 550})
-                </span>
-              </div>
-
-              {/* Quick toggle chips */}
-              <div className="grid grid-cols-4 gap-1.5">
-                {[0, 1, 2, 3].map((count) => (
-                  <button
-                    key={count}
-                    onClick={() => setFoodReductionTxCount(count)}
-                    className={`py-2 text-xs font-semibold rounded-xl border transition-all ${
-                      foodReductionTxCount === count
-                        ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {count === 0 ? 'None' : `-${count} orders`}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Variable 2: Food % Cut Slider */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
+            {/* Variable 1: Top Category % Cut */}
+            <div className="space-y-2">
               <div className="flex justify-between items-center text-xs">
-                <span className="font-semibold text-slate-700">Or Reduce Overall Food Budget:</span>
-                <span className="font-mono font-bold text-teal-600">{foodPercentCut}% cut</span>
+                <span className="font-semibold text-slate-700">
+                  Reduce {topCategory} Spending:
+                </span>
+                <span className="font-mono font-bold text-teal-600">
+                  {topCategoryPercentCut}% (-₹{topCategoryReductionAmount.toLocaleString('en-IN')})
+                </span>
               </div>
               <input
                 type="range"
                 min="0"
-                max="25"
+                max="30"
                 step="5"
-                value={foodPercentCut}
-                onChange={(e) => setFoodPercentCut(Number(e.target.value))}
+                value={topCategoryPercentCut}
+                onChange={(e) => setTopCategoryPercentCut(Number(e.target.value))}
                 className="w-full accent-teal-600 cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-slate-400">
                 <span>0%</span>
-                <span>10%</span>
-                <span>25%</span>
+                <span>15%</span>
+                <span>30%</span>
               </div>
             </div>
 
-            {/* Variable 3: Subscriptions */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
-              <span className="text-xs font-bold text-slate-800 block">
-                Digital Subscriptions
-              </span>
-              <label className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/80 cursor-pointer transition-colors">
-                <div className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={pauseNetflix}
-                    onChange={(e) => setPauseNetflix(e.target.checked)}
-                    className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 accent-teal-600"
-                  />
-                  <div>
-                    <span className="text-xs font-bold text-slate-800 block">Pause Idle Netflix</span>
-                    <span className="text-[11px] text-slate-500">60% drop in view time detected</span>
-                  </div>
-                </div>
-                <span className="text-xs font-bold font-mono text-slate-700">+₹649/mo</span>
-              </label>
-            </div>
-
-            {/* Variable 4: Discretionary Shopping Cut */}
+            {/* Variable 2: Secondary Category Reduction */}
             <div className="space-y-2 pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-800">
-                  Discretionary Shopping Cut
+                  Trim {secondCategory} Spending
                 </span>
                 <span className="text-xs font-bold font-mono text-slate-700">
-                  {shoppingCut > 0 ? `-₹${shoppingCut}` : '₹0'}
+                  {secondaryCategoryCut > 0 ? `-₹${secondaryCategoryCut}` : '₹0'}
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {[0, 500, 1000].map((amt) => (
                   <button
                     key={amt}
-                    onClick={() => setShoppingCut(amt)}
+                    onClick={() => setSecondaryCategoryCut(amt)}
                     className={`py-1.5 text-xs font-medium rounded-xl border transition-all ${
-                      shoppingCut === amt
-                        ? 'bg-indigo-600 text-white border-indigo-600'
+                      secondaryCategoryCut === amt
+                        ? 'bg-teal-600 text-white border-teal-600 shadow-2xs'
                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
@@ -249,32 +237,77 @@ export default function SimulatorPage() {
               </div>
             </div>
 
-            {/* Variable 5: Transport Cut */}
+            {/* Variable 3: Additional Expense (+ Amount Scenario) */}
             <div className="space-y-2 pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-800">
-                  Carpool / Ride Optimization
+                <span className="text-xs font-bold text-rose-700 flex items-center gap-1">
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  Simulate Additional Expense (+₹)
                 </span>
-                <span className="text-xs font-bold font-mono text-slate-700">
-                  {transportCut > 0 ? `-₹${transportCut}` : '₹0'}
+                <span className="text-xs font-bold font-mono text-rose-600">
+                  {additionalExpense > 0 ? `+₹${Number(additionalExpense).toLocaleString('en-IN')}/mo` : '₹0'}
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[0, 300, 600].map((amt) => (
+              <p className="text-[11px] text-slate-500">
+                Test the financial impact of a new recurring expense (e.g. EMI, new service, subscription).
+              </p>
+              <div className="flex gap-2">
+                {[0, 1000, 2000, 5000].map((val) => (
                   <button
-                    key={amt}
-                    onClick={() => setTransportCut(amt)}
-                    className={`py-1.5 text-xs font-medium rounded-xl border transition-all ${
-                      transportCut === amt
-                        ? 'bg-blue-600 text-white border-blue-600'
+                    key={val}
+                    type="button"
+                    onClick={() => setAdditionalExpense(val)}
+                    className={`flex-1 py-1.5 text-xs font-semibold rounded-xl border transition-all ${
+                      additionalExpense === val
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-2xs'
                         : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
-                    {amt === 0 ? 'No change' : `-₹${amt}`}
+                    {val === 0 ? '₹0' : `+₹${val}`}
                   </button>
                 ))}
               </div>
+              <div className="pt-1">
+                <input
+                  type="number"
+                  placeholder="Or enter custom +₹ amount..."
+                  value={additionalExpense || ''}
+                  onChange={(e) => setAdditionalExpense(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-xl font-mono focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
             </div>
+
+            {/* Variable 4: Custom Category Selector */}
+            {userCategories.length > 2 && (
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-700">Custom Category Adjustment:</span>
+                  <select
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white font-medium"
+                  >
+                    {userCategories.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-500 text-[11px]">Reduction:</span>
+                  <span className="font-mono font-bold text-teal-600">{customPercentCut}% (-₹{customReductionAmount})</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  step="5"
+                  value={customPercentCut}
+                  onChange={(e) => setCustomPercentCut(Number(e.target.value))}
+                  className="w-full accent-teal-600 cursor-pointer"
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -288,7 +321,7 @@ export default function SimulatorPage() {
                 Live Simulation Output
               </span>
               <span className="text-xs text-slate-300 font-medium">
-                Real-time recalculation
+                Calculated from your data
               </span>
             </div>
 
@@ -305,107 +338,129 @@ export default function SimulatorPage() {
                     <span className="font-mono font-bold text-white">₹{impact.baseExpense.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between text-xs text-slate-300">
-                    <span>Net Savings:</span>
+                    <span>Net Monthly Savings:</span>
                     <span className="font-mono font-bold text-amber-400">₹{impact.baseSavings.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>
 
               {/* AFTER SIMULATION */}
-              <div className="p-4 rounded-xl bg-teal-900/40 border border-teal-500/40 backdrop-blur-xs">
-                <span className="text-[11px] uppercase font-bold text-teal-300 block mb-1">
+              <div className={`p-4 rounded-xl backdrop-blur-xs border ${
+                impact.isPositive
+                  ? 'bg-teal-900/40 border-teal-500/40'
+                  : 'bg-rose-900/40 border-rose-500/40'
+              }`}>
+                <span className={`text-[11px] uppercase font-bold block mb-1 ${
+                  impact.isPositive ? 'text-teal-300' : 'text-rose-300'
+                }`}>
                   After Simulation
                 </span>
                 <div className="space-y-1">
-                  <div className="flex justify-between text-xs text-teal-100">
+                  <div className="flex justify-between text-xs text-slate-200">
                     <span>Projected Expense:</span>
                     <span className="font-mono font-bold text-white">₹{impact.simulatedExpense.toLocaleString('en-IN')}</span>
                   </div>
-                  <div className="flex justify-between text-xs text-teal-100">
+                  <div className="flex justify-between text-xs text-slate-200">
                     <span>Projected Savings:</span>
-                    <span className="font-mono font-bold text-emerald-300">₹{impact.simulatedSavings.toLocaleString('en-IN')}</span>
+                    <span className={`font-mono font-bold ${
+                      impact.isPositive ? 'text-emerald-300' : 'text-rose-300'
+                    }`}>
+                      ₹{impact.simulatedSavings.toLocaleString('en-IN')}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Highlighted Difference Callout */}
-            <div className="p-4 rounded-xl bg-teal-500/10 border border-teal-400/30 flex items-center justify-between">
+            <div className={`p-4 rounded-xl border flex items-center justify-between ${
+              impact.isPositive
+                ? 'bg-teal-500/10 border-teal-400/30'
+                : 'bg-rose-500/10 border-rose-400/30'
+            }`}>
               <div>
-                <span className="text-xs text-teal-200">Total Net Monthly Gain:</span>
-                <span className="block text-2xl font-extrabold text-teal-300 font-mono">
-                  +₹{impact.savingsDelta.toLocaleString('en-IN')} / month
+                <span className={`text-xs ${impact.isPositive ? 'text-teal-200' : 'text-rose-200'}`}>
+                  {impact.isPositive ? 'Total Net Monthly Gain:' : 'Net Monthly Impact (Increased Spend):'}
+                </span>
+                <span className={`block text-2xl font-extrabold font-mono ${
+                  impact.isPositive ? 'text-teal-300' : 'text-rose-400'
+                }`}>
+                  {impact.savingsDelta >= 0 ? '+' : ''}₹{impact.savingsDelta.toLocaleString('en-IN')} / month
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Annual Impact: {impact.savingsDelta >= 0 ? '+' : ''}₹{impact.annualSavingsImpact.toLocaleString('en-IN')} / year
                 </span>
               </div>
               <div className="text-right">
                 <span className="text-xs text-slate-300">Savings Rate:</span>
                 <span className="block text-lg font-bold text-white font-mono">
-                  {((impact.simulatedSavings / totalIncome) * 100).toFixed(1)}%
+                  {totalIncome > 0 ? ((impact.simulatedSavings / totalIncome) * 100).toFixed(1) : '0.0'}%
                 </span>
               </div>
             </div>
 
-            {/* Impact Details 1: Budget Status Flip */}
+            {/* Impact Details: Savings Goal Timeline or Default Savings Objective */}
             <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                Food & Dining Budget Status
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-teal-400" />
+                {activeGoal ? `${goalName} Target Impact` : 'Default Objective: Build Your Savings'}
               </span>
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
-                    {impact.food.statusBefore} (₹{impact.food.projectedBefore})
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-slate-400" />
-                  <span className={`px-2.5 py-1 rounded-md font-bold border ${
-                    impact.food.statusAfter === 'On Track'
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                  }`}>
-                    {impact.food.statusAfter} (₹{impact.food.projectedAfter})
-                  </span>
-                </div>
-                {impact.food.statusAfter === 'On Track' && (
-                  <span className="text-[11px] text-emerald-300 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Budget Deficit Eliminated!
-                  </span>
-                )}
-              </div>
-            </div>
 
-            {/* Impact Details 2: Savings Goal Acceleration */}
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
-              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                New Laptop Goal Finish Line (₹60,000 Target)
-              </span>
-              <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-300 font-mono">
-                    {impact.goal.baseMonths} months
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-teal-400" />
-                  <span className="font-bold text-emerald-300 font-mono text-sm">
-                    {impact.goal.simulatedMonths} months
-                  </span>
+              {activeGoal ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-300 font-mono">
+                      {impact.goal.baseMonths > 900 ? 'Delayed' : `${impact.goal.baseMonths} mos`}
+                    </span>
+                    <ArrowRight className="w-4 h-4 text-teal-400" />
+                    <span className={`font-mono font-bold text-sm ${
+                      impact.isPositive ? 'text-emerald-300' : 'text-rose-400'
+                    }`}>
+                      {impact.goal.simulatedMonths > 900 ? 'Unreachable' : `${impact.goal.simulatedMonths} mos`}
+                    </span>
+                  </div>
+
+                  {impact.goal.monthsSaved > 0 && (
+                    <span className="text-xs font-semibold text-teal-300 bg-teal-900/50 px-2.5 py-1 rounded-md border border-teal-500/30">
+                      ⚡ Finish {impact.goal.monthsSaved} month{impact.goal.monthsSaved !== 1 ? 's' : ''} sooner!
+                    </span>
+                  )}
+                  {impact.goal.monthsDelayed > 0 && (
+                    <span className="text-xs font-semibold text-rose-300 bg-rose-900/50 px-2.5 py-1 rounded-md border border-rose-500/30 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 text-rose-400" />
+                      Delayed by +{impact.goal.monthsDelayed > 900 ? 'indefinite' : `${impact.goal.monthsDelayed} mos`}
+                    </span>
+                  )}
+                  {impact.goal.monthsSaved === 0 && impact.goal.monthsDelayed === 0 && (
+                    <span className="text-xs text-slate-400">
+                      Timeline unchanged
+                    </span>
+                  )}
                 </div>
-                <span className="text-xs font-semibold text-teal-300 bg-teal-900/50 px-2.5 py-1 rounded-md border border-teal-500/30">
-                  ⚡ Finish {impact.goal.daysSaved} days sooner!
-                </span>
-              </div>
+              ) : (
+                <div className="text-xs text-slate-300 space-y-1">
+                  <p>
+                    You currently have no specific savings goal.
+                    {impact.savingsDelta > 0
+                      ? ` Saving ₹${impact.savingsDelta.toLocaleString('en-IN')} more per month could increase your annual savings cushion by ₹${impact.annualSavingsImpact.toLocaleString('en-IN')}.`
+                      : ` Adding ₹${Math.abs(impact.savingsDelta).toLocaleString('en-IN')} in monthly expenses reduces your annual savings growth by ₹${Math.abs(impact.annualSavingsImpact).toLocaleString('en-IN')}.`}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* CTA: Apply Recommendation */}
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/10">
               <span className="text-[11px] text-slate-400">
-                Simulations do not modify actual data until applied.
+                Simulations project scenarios without modifying actual data until applied.
               </span>
               <button
                 onClick={handleApply}
-                disabled={applied || impact.savingsDelta === 0}
+                disabled={applied || impact.savingsDelta <= 0}
                 className={`w-full sm:w-auto px-6 py-3 text-xs font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${
                   applied
                     ? 'bg-emerald-600 text-white cursor-default'
-                    : impact.savingsDelta === 0
+                    : impact.savingsDelta <= 0
                     ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
                     : 'bg-teal-500 hover:bg-teal-400 text-slate-900'
                 }`}
@@ -418,7 +473,7 @@ export default function SimulatorPage() {
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    <span>Apply Recommendation (Save ₹{impact.savingsDelta})</span>
+                    <span>Apply Optimization (Save ₹{Math.max(0, impact.savingsDelta).toLocaleString('en-IN')})</span>
                   </>
                 )}
               </button>
@@ -429,3 +484,4 @@ export default function SimulatorPage() {
     </div>
   );
 }
+

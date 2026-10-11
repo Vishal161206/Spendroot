@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Settings, User, Bell, Database, RotateCcw, ShieldCheck, Check } from 'lucide-react';
+import { Settings, User, Bell, Database, ShieldCheck, Check } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 
 export default function SettingsPage() {
-  const { user, resetToDemoState, showToast } = useFinance();
-  const [name, setName] = useState(user.name);
-  const [income, setIncome] = useState(user.monthlyIncome.toString());
+  const { user, showToast } = useFinance();
+  const [name, setName] = useState(user?.name || '');
+  const [income, setIncome] = useState((user?.monthlyIncome || user?.monthly_income || 40000).toString());
   const [threshold, setThreshold] = useState('85');
 
   const handleSaveProfile = (e) => {
@@ -19,10 +19,10 @@ export default function SettingsPage() {
       <div className="p-5 lg:p-6 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
         <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
           <Settings className="w-5 h-5 text-teal-600" />
-          <span>Platform Settings & Demo Controls</span>
+          <span>Platform Settings & Preferences</span>
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
-          Configure financial preferences, alerts, and demo dataset state.
+          Configure financial preferences, alerts, and account settings.
         </p>
       </div>
 
@@ -108,34 +108,9 @@ export default function SettingsPage() {
           The SpendRoot frontend architecture utilizes a decoupled mock service layer (<span className="font-mono text-teal-700">financeService.js</span>). For hackathon judging, local reactive storage is active. When the Spring Boot REST API is connected, endpoints map directly:
         </p>
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl font-mono text-[11px] text-slate-700 space-y-1">
-          <div>GET /api/v1/transactions → <span className="text-emerald-700">Active (Mock In-Memory)</span></div>
-          <div>GET /api/v1/analytics/patterns → <span className="text-emerald-700">Active (Temporal Engine)</span></div>
-          <div>POST /api/v1/simulator/calculate → <span className="text-emerald-700">Active (Math Engine)</span></div>
-        </div>
-      </div>
-
-      {/* Judge Demo Reset Button */}
-      <div className="p-6 bg-amber-50/50 rounded-2xl border border-amber-200/80 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-amber-900 flex items-center gap-1.5">
-              <RotateCcw className="w-4 h-4 text-amber-700" />
-              <span>Jury Demo State Reset</span>
-            </h2>
-            <p className="text-xs text-amber-800/80 mt-0.5">
-              Clear all temporary imports, edits, and simulation states to restore the baseline September 2026 dataset.
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              if (window.confirm("Reset dataset back to default September 2026?")) {
-                resetToDemoState();
-              }
-            }}
-            className="px-4 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs active:scale-95 transition-all shrink-0"
-          >
-            Reset Demo Data
-          </button>
+          <div>GET /api/transactions → <span className="text-emerald-700">Active (MySQL 8.0)</span></div>
+          <div>GET /api/insights → <span className="text-emerald-700">Active (Intelligence Engine)</span></div>
+          <div>POST /api/insights/simulate → <span className="text-emerald-700">Active (What-If Simulation Engine)</span></div>
         </div>
       </div>
     </div>

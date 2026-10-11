@@ -14,9 +14,9 @@ export default function RegisterPage() {
     }
   }, [token, navigate]);
 
-  const [name, setName] = useState('Vishal');
-  const [email, setEmail] = useState('demo@spendroot.com');
-  const [password, setPassword] = useState('Demo@123');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -79,7 +79,7 @@ export default function RegisterPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Vishal"
+                placeholder="Full Name"
                 className="w-full pl-9 pr-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none"
                 required
               />
@@ -96,7 +96,7 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="vishal@spendroot.com"
+                placeholder="name@example.com"
                 className="w-full pl-9 pr-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none"
                 required
               />

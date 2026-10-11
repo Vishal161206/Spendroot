@@ -79,8 +79,7 @@ const initialStore = {
     { id: 6, user_id: 2, category: 'Food & Dining', amount: 6000, month: 'September', year: 2026 },
   ],
   goals: [
-    { id: 1, user_id: 1, name: 'New Laptop', category: 'Gadgets / Work', target_amount: 60000, current_amount: 20000, target_date: 'March 2027', description: 'MacBook Pro / ThinkPad upgrade for development and freelancing.', color: '#0D9488' },
-    { id: 2, user_id: 1, name: 'Emergency Fund', category: 'Safety Net', target_amount: 30000, current_amount: 22000, target_date: 'December 2026', description: '3 months of basic living reserves maintained in high-yield liquid funds.', color: '#10B981' }
+    { id: 1, user_id: 1, name: 'Emergency Fund', category: 'Safety Net', target_amount: 50000, current_amount: 18000, target_date: 'December 2026', description: '3 months of basic living reserves maintained in high-yield liquid funds.', color: '#10B981' }
   ],
   settings: [
     { id: 1, user_id: 1, alert_threshold: 85, theme: 'light', email_notifications: true },

@@ -6,7 +6,18 @@ import { useNavigate } from 'react-router-dom';
 export default function Header({ onMenuClick, onOpenAddTxModal }) {
   const { user, currentMonth, setCurrentMonth, notifications } = useFinance();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
   const navigate = useNavigate();
+
+  const availableMonths = [
+    'April 2026',
+    'May 2026',
+    'June 2026',
+    'July 2026',
+    'August 2026',
+    'September 2026',
+    'October 2026',
+  ];
 
   const unreadCount = notifications.length;
 
@@ -23,7 +34,7 @@ export default function Header({ onMenuClick, onOpenAddTxModal }) {
 
         <div>
           <h1 className="text-lg lg:text-xl font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
-            Good morning, {user.name} <span className="inline-block animate-pulse">👋</span>
+            Good morning, {user?.name || 'User'} <span className="inline-block animate-pulse">👋</span>
           </h1>
           <p className="text-xs text-slate-500 hidden sm:block">
             Here is your financial picture for {currentMonth}.
@@ -33,13 +44,41 @@ export default function Header({ onMenuClick, onOpenAddTxModal }) {
 
       {/* Right: Actions, Month Picker & Notifications */}
       <div className="flex items-center gap-2.5 sm:gap-3">
-        {/* Month Selector */}
-        <div className="relative hidden md:flex items-center">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-200/80 transition-colors">
+        {/* Interactive Month Selector */}
+        <div className="relative flex items-center">
+          <button
+            onClick={() => setShowMonthPicker(!showMonthPicker)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-200/80 transition-colors"
+            title="Select time period for financial analysis"
+          >
             <Calendar className="w-3.5 h-3.5 text-teal-600" />
             <span>{currentMonth}</span>
             <ChevronDown className="w-3 h-3 text-slate-400" />
-          </div>
+          </button>
+
+          {showMonthPicker && (
+            <div className="absolute top-full left-0 mt-1.5 w-44 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
+                Select Analysis Period
+              </div>
+              {availableMonths.map((m) => (
+                <button
+                  key={m}
+                  onClick={() => {
+                    setCurrentMonth(m);
+                    setShowMonthPicker(false);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between transition-colors ${currentMonth === m
+                      ? 'bg-teal-50 text-teal-800 font-bold'
+                      : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                >
+                  <span>{m}</span>
+                  {currentMonth === m && <CheckCircle2 className="w-3 h-3 text-teal-600" />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Quick Add Transaction Button */}
@@ -84,33 +123,38 @@ export default function Header({ onMenuClick, onOpenAddTxModal }) {
               </div>
 
               <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    onClick={() => {
-                      setShowNotifications(false);
-                      if (n.link) navigate(n.link);
-                    }}
-                    className="p-3.5 hover:bg-slate-50 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 p-1.5 rounded-lg bg-slate-100 shrink-0">
-                        {n.type === 'warning' ? (
-                          <AlertTriangle className="w-4 h-4 text-amber-500" />
-                        ) : n.type === 'pattern' ? (
-                          <Sparkles className="w-4 h-4 text-indigo-500" />
-                        ) : (
-                          <CheckCircle2 className="w-4 h-4 text-teal-500" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-slate-800">{n.title}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{n.message}</p>
-                        <p className="text-[10px] text-slate-400 mt-1">{n.timestamp}</p>
+                {notifications.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-slate-500">
+                    No active alerts or signals for this period.
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => {
+                        setShowNotifications(false);
+                        if (n.link) navigate(n.link);
+                      }}
+                      className="p-3.5 hover:bg-slate-50 cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 p-1.5 rounded-lg bg-slate-100 shrink-0">
+                          {n.type === 'warning' ? (
+                            <AlertTriangle className="w-4 h-4 text-amber-500" />
+                          ) : n.type === 'pattern' ? (
+                            <Sparkles className="w-4 h-4 text-indigo-500" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4 text-teal-500" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-slate-800">{n.title}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{n.message}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{n.timestamp}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )))}
               </div>
 
               <div className="p-2.5 bg-slate-50 border-t border-slate-100 text-center">
@@ -131,8 +175,8 @@ export default function Header({ onMenuClick, onOpenAddTxModal }) {
         {/* User Mini Avatar */}
         <div className="flex items-center pl-2 border-l border-slate-200">
           <img
-            src={user.avatar}
-            alt={user.name}
+            src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
+            alt={user?.name || 'User'}
             className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100"
           />
         </div>

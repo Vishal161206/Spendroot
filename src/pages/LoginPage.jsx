@@ -5,16 +5,16 @@ import { useFinance } from '../context/FinanceContext';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { login, isBackendConnected, token } = useFinance();
+  const { login, isBackendConnected, token, user, authLoading } = useFinance();
 
   React.useEffect(() => {
-    if (token) {
+    if (!authLoading && token && user) {
       navigate('/', { replace: true });
     }
-  }, [token, navigate]);
+  }, [token, user, authLoading, navigate]);
 
-  const [email, setEmail] = useState('demo@spendroot.com');
-  const [password, setPassword] = useState('Demo@123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,12 +37,6 @@ export default function LoginPage() {
     } else {
       setError(result?.error || 'Invalid credentials or backend unavailable.');
     }
-  };
-
-  const handleQuickFill = () => {
-    setEmail('demo@spendroot.com');
-    setPassword('Demo@123');
-    setError('');
   };
 
   return (
@@ -131,28 +125,9 @@ export default function LoginPage() {
               Welcome back
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Sign in with your hackathon demo credentials to review September 2026.
+              Sign in to manage your finances, track spending, and reach your goals.
             </p>
           </div>
-
-          {/* Demo Quick-Fill Pill Button */}
-          <button
-            type="button"
-            onClick={handleQuickFill}
-            className="w-full p-3 rounded-xl bg-teal-50 border border-teal-200/80 text-left hover:bg-teal-100/60 transition-colors flex items-center justify-between group"
-          >
-            <div>
-              <span className="text-[11px] uppercase font-bold text-teal-800 block">
-                Quick Demo Login Preset
-              </span>
-              <span className="text-xs font-mono text-teal-700">
-                demo@spendroot.com • Demo@123
-              </span>
-            </div>
-            <span className="text-xs font-bold text-teal-700 group-hover:underline">
-              Auto-Fill
-            </span>
-          </button>
 
           {error && (
             <div className="p-3 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl">
@@ -171,7 +146,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="demo@spendroot.com"
+                  placeholder="name@example.com"
                   className="w-full pl-9 pr-3.5 py-2.5 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none transition-all"
                   required
                 />
@@ -207,7 +182,7 @@ export default function LoginPage() {
               </label>
               <a
                 href="#forgot"
-                onClick={(e) => { e.preventDefault(); alert("Use Demo credentials: demo@spendroot.com / Demo@123"); }}
+                onClick={(e) => { e.preventDefault(); alert("To reset your password, please contact support or register a new account."); }}
                 className="text-teal-600 hover:underline font-semibold"
               >
                 Forgot password?

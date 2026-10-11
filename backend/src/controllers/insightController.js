@@ -76,23 +76,36 @@ export async function getInsights(req, res, next) {
 export async function calculateSimulation(req, res, next) {
   try {
     const {
-      baseIncome = 40000,
-      baseExpense = 31850,
-      foodReductionTxCount = 2,
-      foodPercentCut = 0,
-      removeNetflix = false,
-      shoppingCut = 0,
-      transportCut = 0
+      baseIncome,
+      baseExpense,
+      goalTarget,
+      goalCurrent,
+      goalName,
+      spendingReductions,
+      additionalExpense,
+      foodReductionTxCount,
+      foodPercentCut,
+      removeNetflix,
+      shoppingCut,
+      transportCut,
+      categoryAdjustments,
     } = req.body;
 
+    const userIncome = Number(baseIncome || req.user.monthly_income || 40000);
     const simulationResult = calculateWhatIfImpact({
-      baseIncome: Number(baseIncome),
-      baseExpense: Number(baseExpense),
-      foodOrderReductionCount: Number(foodReductionTxCount),
-      foodPercentCut: Number(foodPercentCut),
+      baseIncome: userIncome,
+      baseExpense: Number(baseExpense || 0),
+      goalTarget: Number(goalTarget || 0),
+      goalCurrent: Number(goalCurrent || 0),
+      goalName: goalName || null,
+      spendingReductions: Number(spendingReductions || 0),
+      additionalExpense: Number(additionalExpense || 0),
+      foodOrderReductionCount: Number(foodReductionTxCount || 0),
+      foodPercentCut: Number(foodPercentCut || 0),
       removeNetflix: Boolean(removeNetflix),
-      shoppingCutAmount: Number(shoppingCut),
-      transportCutAmount: Number(transportCut),
+      shoppingCutAmount: Number(shoppingCut || 0),
+      transportCutAmount: Number(transportCut || 0),
+      categoryAdjustments: categoryAdjustments || [],
     });
 
     res.status(200).json({

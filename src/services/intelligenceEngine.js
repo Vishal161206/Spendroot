@@ -129,75 +129,99 @@ export function detectLateEveningFoodSequences(transactions) {
 
 /**
  * Pure What-If Simulation Engine:
- * Computes exact changes to expenses, net savings, budget statuses, and goal countdowns.
+ * Fully dynamic: supports spending reductions (positive) and additional expenses (negative).
+ * Computes exact changes to net savings, goal acceleration or delay, and category projections.
  */
 export function calculateWhatIfImpact({
   baseIncome = 40000,
-  baseExpense = 31850,
+  baseExpense = 0,
+  goalTarget = 0,
+  goalCurrent = 0,
+  goalName = null,
+  spendingReductions = 0,
+  additionalExpense = 0,
+  // Backward compatibility / optional specific category details
   foodBudget = 5000,
   foodSpent = 4650,
   foodProjected = 6050,
   shoppingBudget = 2500,
   shoppingProjected = 3400,
-  goalTarget = 60000,
-  goalCurrent = 20000,
-  // Scenario toggles
-  foodOrderReductionCount = 2, // 0, 1, 2, 3 orders
-  foodPercentCut = 0,          // 0, 10, 25%
-  removeNetflix = false,       // ₹649
-  shoppingCutAmount = 0,       // 0, 500, 1000
-  transportCutAmount = 0,      // 0, 300, 600
+  foodOrderReductionCount = 0,
+  foodPercentCut = 0,
+  removeNetflix = false,
+  shoppingCutAmount = 0,
+  transportCutAmount = 0,
+  categoryAdjustments = [],
 }) {
   let totalSavingsDelta = 0;
 
-  // Food delivery reduction impact
-  let foodSavings = 0;
-  if (foodOrderReductionCount > 0) {
-    foodSavings += foodOrderReductionCount * 550; // ₹550 average avoidable dinner cost
+  // 1. Calculate savings from reductions
+  let legacyReductions = 0;
+  if (foodOrderReductionCount > 0) legacyReductions += foodOrderReductionCount * 550;
+  if (foodPercentCut > 0) legacyReductions += Math.round(foodProjected * (foodPercentCut / 100));
+  if (removeNetflix) legacyReductions += 649;
+  legacyReductions += Number(shoppingCutAmount) || 0;
+  legacyReductions += Number(transportCutAmount) || 0;
+
+  // Add dynamic category adjustments
+  if (Array.isArray(categoryAdjustments)) {
+    for (const adj of categoryAdjustments) {
+      if (adj.type === 'reduction') {
+        totalSavingsDelta += Number(adj.amount) || 0;
+      } else if (adj.type === 'increase') {
+        totalSavingsDelta -= Number(adj.amount) || 0;
+      }
+    }
   }
-  if (foodPercentCut > 0) {
-    foodSavings += Math.round(foodProjected * (foodPercentCut / 100));
-  }
-  totalSavingsDelta += foodSavings;
 
-  // Subscriptions impact
-  if (removeNetflix) {
-    totalSavingsDelta += 649;
-  }
+  totalSavingsDelta += (Number(spendingReductions) || legacyReductions);
+  totalSavingsDelta -= (Number(additionalExpense) || 0);
 
-  // Shopping cut
-  totalSavingsDelta += shoppingCutAmount;
-
-  // Transport cut
-  totalSavingsDelta += transportCutAmount;
-
-  // Recalculated figures
   const simulatedExpense = Math.max(0, baseExpense - totalSavingsDelta);
   const baseSavings = baseIncome - baseExpense;
   const simulatedSavings = baseIncome - simulatedExpense;
   const savingsDelta = simulatedSavings - baseSavings;
 
-  // Food budget recalculation
+  // Category specific impact
+  const foodSavings = (foodOrderReductionCount * 550) + (foodPercentCut > 0 ? Math.round(foodProjected * (foodPercentCut / 100)) : 0);
   const simulatedFoodProjected = Math.max(foodSpent, foodProjected - foodSavings);
   const foodStatusBefore = foodProjected > foodBudget ? "At Risk" : "On Track";
   const foodStatusAfter = simulatedFoodProjected <= foodBudget ? "On Track" : "At Risk";
 
-  // Shopping budget recalculation
-  const simulatedShoppingProjected = Math.max(0, shoppingProjected - shoppingCutAmount);
-  const shoppingStatusAfter = simulatedShoppingProjected <= shoppingBudget ? "On Track" : "At Risk";
+  // Savings goal timeline & delay impact
+  const target = Number(goalTarget) || 0;
+  const current = Number(goalCurrent) || 0;
+  const goalRemaining = Math.max(0, target - current);
 
-  // Savings goal timeline impact
-  const goalRemaining = Math.max(0, goalTarget - goalCurrent);
-  const baseMonthsToGoal = baseSavings > 0 ? (goalRemaining / baseSavings) : 12;
-  const simulatedMonthsToGoal = simulatedSavings > 0 ? (goalRemaining / simulatedSavings) : 12;
-  const monthsSaved = Math.max(0, baseMonthsToGoal - simulatedMonthsToGoal);
+  let baseMonthsToGoal = 0;
+  let simulatedMonthsToGoal = 0;
+  let monthsSaved = 0;
+  let monthsDelayed = 0;
+
+  if (target > 0 && goalRemaining > 0) {
+    baseMonthsToGoal = baseSavings > 0 ? Number((goalRemaining / baseSavings).toFixed(1)) : 999;
+    simulatedMonthsToGoal = simulatedSavings > 0 ? Number((goalRemaining / simulatedSavings).toFixed(1)) : 999;
+
+    if (simulatedSavings >= baseSavings) {
+      monthsSaved = Number(Math.max(0, baseMonthsToGoal - simulatedMonthsToGoal).toFixed(1));
+      monthsDelayed = 0;
+    } else {
+      monthsSaved = 0;
+      monthsDelayed = simulatedSavings > 0 
+        ? Number(Math.max(0, simulatedMonthsToGoal - baseMonthsToGoal).toFixed(1))
+        : 999;
+    }
+  }
 
   return {
+    baseIncome,
     baseExpense,
     simulatedExpense,
     baseSavings,
     simulatedSavings,
     savingsDelta,
+    isPositive: savingsDelta >= 0,
+    annualSavingsImpact: savingsDelta * 12,
     food: {
       budget: foodBudget,
       spent: foodSpent,
@@ -210,16 +234,20 @@ export function calculateWhatIfImpact({
     shopping: {
       budget: shoppingBudget,
       projectedBefore: shoppingProjected,
-      projectedAfter: simulatedShoppingProjected,
-      statusAfter: shoppingStatusAfter,
+      projectedAfter: Math.max(0, shoppingProjected - (Number(shoppingCutAmount) || 0)),
+      statusAfter: Math.max(0, shoppingProjected - (Number(shoppingCutAmount) || 0)) <= shoppingBudget ? "On Track" : "At Risk",
     },
     goal: {
-      target: goalTarget,
-      current: goalCurrent,
-      baseMonths: parseFloat(baseMonthsToGoal.toFixed(1)),
-      simulatedMonths: parseFloat(simulatedMonthsToGoal.toFixed(1)),
-      monthsSaved: parseFloat(monthsSaved.toFixed(1)),
+      target,
+      current,
+      name: goalName,
+      hasGoal: target > 0,
+      baseMonths: baseMonthsToGoal,
+      simulatedMonths: simulatedMonthsToGoal,
+      monthsSaved,
+      monthsDelayed,
       daysSaved: Math.round(monthsSaved * 30),
+      daysDelayed: Math.round(monthsDelayed * 30),
       currentMonthlyContribution: baseSavings,
       simulatedMonthlyContribution: simulatedSavings,
     }

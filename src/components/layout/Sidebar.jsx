@@ -30,7 +30,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
-  const { user, currentMonth, resetToDemoState } = useFinance();
+  const { user, currentMonth, logout } = useFinance();
 
   return (
     <>
@@ -109,24 +109,12 @@ export default function Sidebar({ isOpen, onClose }) {
           })}
         </nav>
 
-        {/* Month Indicator & Judge Reset */}
+        {/* Month Indicator */}
         <div className="p-3 mx-3 mb-2 rounded-xl bg-slate-50 border border-slate-200/60">
-          <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+          <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Active Period:</span>
             <span className="font-semibold text-slate-700">{currentMonth}</span>
           </div>
-          <button
-            onClick={() => {
-              if (window.confirm("Reset to pristine September 2026 demo state?")) {
-                resetToDemoState();
-              }
-            }}
-            className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 hover:text-slate-800 transition-colors shadow-2xs"
-            title="Reset dataset for hackathon judges demo"
-          >
-            <RotateCcw className="w-3 h-3 text-teal-600" />
-            <span>Reset Demo Data</span>
-          </button>
         </div>
 
         {/* User Profile Card */}
@@ -134,17 +122,20 @@ export default function Sidebar({ isOpen, onClose }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img
-                src={user.avatar}
-                alt={user.name}
+                src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
+                alt={user?.name || 'User'}
                 className="w-9 h-9 rounded-full object-cover ring-2 ring-teal-500/20"
               />
               <div className="overflow-hidden">
-                <p className="text-sm font-semibold text-slate-800 truncate">{user.name}</p>
-                <p className="text-xs text-slate-400 truncate">{user.email}</p>
+                <p className="text-sm font-semibold text-slate-800 truncate">{user?.name || 'User'}</p>
+                <p className="text-xs text-slate-400 truncate">{user?.email || ''}</p>
               </div>
             </div>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => {
+                logout();
+                navigate('/login', { replace: true });
+              }}
               className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
               title="Logout"
             >

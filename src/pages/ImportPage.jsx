@@ -12,19 +12,18 @@ import {
   Filter,
 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
-import { MOCK_CSV_IMPORT_RECORDS } from '../services/mockData';
 import { parseCsvContent } from '../services/csvParser';
 
 export default function ImportPage() {
   const navigate = useNavigate();
   const { transactions, importTransactions } = useFinance();
 
-  const [records, setRecords] = useState(MOCK_CSV_IMPORT_RECORDS);
+  const [records, setRecords] = useState([]);
   const [stats, setStats] = useState({
-    total: 147,
-    valid: 141,
-    duplicate: 4,
-    incomplete: 2,
+    total: 0,
+    valid: 0,
+    duplicate: 0,
+    incomplete: 0,
   });
   const [filterTab, setFilterTab] = useState('All'); // 'All' | 'Valid' | 'Issues'
   const [isImported, setIsImported] = useState(false);
@@ -111,8 +110,10 @@ export default function ImportPage() {
         </label>
       </div>
 
-      {/* Detection & Validation Summary Bar */}
-      <div className="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
+      {records.length > 0 ? (
+        <>
+          {/* Detection & Validation Summary Bar */}
+          <div className="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
@@ -309,6 +310,18 @@ export default function ImportPage() {
           </table>
         </div>
       </div>
+    </>
+  ) : (
+    <div className="p-12 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs flex flex-col items-center justify-center">
+      <div className="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-600 mb-3 border border-teal-100">
+        <FileSpreadsheet className="w-6 h-6" />
+      </div>
+      <h3 className="text-base font-bold text-slate-800">No Statement Loaded</h3>
+      <p className="text-xs text-slate-500 mt-1 max-w-sm">
+        Select or drop a bank or UPI statement CSV file above to preview parsed rows, run categorization, and merge into your ledger.
+      </p>
     </div>
-  );
+  )}
+</div>
+);
 }
